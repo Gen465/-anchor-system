@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anchor System</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4a7cf7">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Anchors">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #d0d0d0; min-height: 100vh; display: flex; flex-direction: column;
+}
+.app {
+  max-width: 500px; margin: 0 auto; width: 100%; min-height: 100vh;
+  background: #fff; display: flex; flex-direction: column;
+  box-shadow: 0 0 40px rgba(0,0,0,0.12);
+}
+
+/* ── Header ── */
+.header { padding: 22px 20px 14px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.header-left { flex: 1; min-width: 0; }
+.header h1 { font-size: 22px; font-weight: 700; }
+.header-date { font-size: 13px; color: #555; margin-top: 3px; }
+.header-track { text-align: right; flex-shrink: 0; }
+.header-track-label { font-size: 10px; font-weight: 700; color: #777; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+.header-track-input { border: 1.5px solid #e8e8e8; border-radius: 9px; padding: 6px 10px; font-size: 13px; font-family: inherit; outline: none; color: #1a1a1a; }
+.header-track-input:focus { border-color: #4a7cf7; }
+
+/* ── Content ── */
+.content { flex: 1; overflow-y: auto; padding: 18px 20px 90px; }
+
+/* ── Nav ── */
+.nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 500px; background: #fff;
+  border-top: 1px solid #f0f0f0; display: flex;
+  padding: 10px 0 18px; z-index: 10;
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 3px; padding: 6px; border: none; background: none; cursor: pointer;
+  color: #777; font-size: 10px; font-family: inherit; font-weight: 600;
+  transition: color 0.15s;
+}
+.nav-btn.active { color: #4a7cf7; }
+.nav-icon { font-size: 22px; line-height: 1; }
+
+/* ── Anchor card (Today) ── */
+.anchor-card {
+  background: #fafafa; border: 1.5px solid #e0e0e0;
+  border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+  transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.anchor-card.is-current { background: #eef2ff; border-color: #4a7cf7; }
+.anchor-card.is-done    { opacity: 0.45; }
+.anchor-card.is-missed  { opacity: 0.35; }
+.card-row { display: flex; align-items: center; gap: 10px; }
+.card-time { font-size: 12px; color: #666; min-width: 38px; font-variant-numeric: tabular-nums; }
+.card-name { flex: 1; font-size: 16px; font-weight: 600; color: #1a1a1a; }
+.now-badge {
+  font-size: 10px; background: #4a7cf7; color: #fff;
+  padding: 2px 8px; border-radius: 100px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.check-btn {
+  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #ddd;
+  background: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; flex-shrink: 0; transition: all 0.15s;
+}
+.check-btn.checked { background: #22c55e; border-color: #22c55e; color: #fff; }
+.card-mvs  { font-size: 12px; color: #666; margin-top: 7px; padding-left: 48px; line-height: 1.4; }
+.card-plan {
+  font-size: 12px; color: #4a7cf7; margin-top: 6px; padding-left: 48px;
+  display: flex; align-items: flex-start; gap: 5px; line-height: 1.4;
+}
+.daily-score { text-align: center; font-size: 13px; color: #888; margin-top: 18px; }
+
+/* ── Tomorrow ── */
+.tmrw-card { background: #fafafa; border: 1.5px solid #d0d0d0; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
+.tmrw-row  { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.plan-input {
+  width: 100%; padding: 10px 13px; border: 1.5px solid #c8c8c8; border-radius: 10px;
+  font-size: 14px; font-weight: 500; font-family: inherit; color: #1a1a1a; background: #fff;
+  outline: none; resize: none; transition: border-color 0.15s; line-height: 1.4;
+}
+.plan-input:focus { border-color: #4a7cf7; }
+.plan-input::placeholder { color: #999; }
+.tmrw-hint { text-align: center; font-size: 13px; color: #888; margin-top: 18px; line-height: 1.5; }
+
+/* ── Week ── */
+.week-entry      { margin-bottom: 18px; }
+.week-label-row  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.week-label      { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.7px; }
+.week-chips      { display: flex; flex-wrap: wrap; gap: 6px; }
+.week-none       { font-size: 12px; color: #999; font-style: italic; }
+.week-tally      { font-size: 12px; color: #666; margin-top: 5px; }
+.skipped-label   { font-size: 12px; color: #f87171; font-style: italic; margin-top: 4px; }
+.chip            { padding: 5px 11px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+.chip-hit        { background: #dcfce7; color: #15803d; }
+.chip-miss       { background: #f1f5f9; color: #555; }
+.chip-future     { background: #f8fafc; color: #94a3b8; border: 1.5px solid #e8ecf0; }
+.chip.clickable  { cursor: pointer; transition: opacity 0.15s; }
+.chip.clickable:hover { opacity: 0.7; }
+.week-entry.is-skipped .week-chips { opacity: 0.3; pointer-events: none; }
+
+/* ── Stats ── */
+.stat-hero       { background: #eef2ff; border-radius: 16px; padding: 24px 20px; text-align: center; margin-bottom: 22px; }
+.stat-hero-num   { font-size: 52px; font-weight: 800; color: #4a7cf7; line-height: 1; }
+.stat-hero-sub   { font-size: 14px; color: #7c9ef7; margin-top: 6px; font-weight: 600; }
+.stat-section-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
+.stat-block      { margin-bottom: 14px; }
+.stat-block-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.stat-block-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+.stat-block-frac { font-size: 13px; color: #555; font-variant-numeric: tabular-nums; }
+.stat-bar-track  { height: 7px; background: #f0f0f0; border-radius: 100px; overflow: hidden; }
+.stat-bar-fill   { height: 100%; background: #4a7cf7; border-radius: 100px; transition: width 0.4s; }
+.stat-bar-fill.full { background: #22c55e; }
+.stat-divider    { border: none; border-top: 1px solid #f0f0f0; margin: 20px 0; }
+.week-arrow      { font-size: 15px; font-weight: 800; margin-left: 8px; }
+.week-arrow.up   { color: #22c55e; }
+.week-arrow.flat { color: #94a3b8; }
+.week-arrow.down { color: #f97316; }
+.week-arrow.good { color: #22c55e; }
+
+/* ── Consistency ── */
+.consist-box     { background: #fafafa; border: 1.5px solid #efefef; border-radius: 16px; padding: 18px 18px 14px; }
+.consist-top     { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.consist-score   { font-size: 52px; font-weight: 800; line-height: 1; }
+.consist-score.high { color: #22c55e; }
+.consist-score.mid  { color: #4a7cf7; }
+.consist-score.low  { color: #f97316; }
+.consist-score.poor { color: #ef4444; }
+.consist-right   { text-align: right; padding-bottom: 6px; }
+.consist-trend   { font-size: 20px; font-weight: 800; }
+.consist-trend.up   { color: #22c55e; }
+.consist-trend.flat { color: #94a3b8; }
+.consist-trend.down { color: #f97316; }
+.consist-label   { font-size: 11px; color: #666; margin-top: 2px; }
+.consist-foot    { font-size: 11px; color: #888; margin-top: 10px; text-align: center; }
+
+/* ── Setup ── */
+.setup-item {
+  background: #fafafa; border: 1.5px solid #efefef; border-radius: 14px;
+  padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px;
+}
+.setup-info      { flex: 1; min-width: 0; }
+.setup-time      { font-size: 12px; color: #666; }
+.setup-name      { font-size: 15px; font-weight: 600; margin-top: 1px; }
+.setup-sub       { font-size: 12px; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.setup-days-badge { display: inline-block; font-size: 11px; color: #7c9ef7; background: #eef2ff; padding: 2px 8px; border-radius: 100px; font-weight: 600; margin-top: 4px; }
+.edit-btn        { background: none; border: none; cursor: pointer; font-size: 18px; padding: 6px; color: #999; }
+.edit-btn:hover  { color: #666; }
+.add-btn {
+  width: 100%; padding: 14px; border: 2px dashed #e0e0e0; border-radius: 14px;
+  background: none; font-size: 15px; color: #bbb; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.add-btn:hover   { border-color: #4a7cf7; color: #4a7cf7; }
+.setup-section   { margin-bottom: 24px; }
+.setup-section-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 10px; }
+.start-date-row  { display: flex; align-items: center; gap: 12px; background: #fafafa; border: 1.5px solid #efefef; border-radius: 14px; padding: 14px 16px; }
+.start-date-info { flex: 1; }
+.start-date-label { font-size: 15px; font-weight: 600; }
+.start-date-sub  { font-size: 12px; color: #666; margin-top: 2px; }
+.start-date-input { border: 1.5px solid #e8e8e8; border-radius: 10px; padding: 8px 12px; font-size: 14px; font-family: inherit; outline: none; color: #1a1a1a; }
+.start-date-input:focus { border-color: #4a7cf7; }
+
+/* ── Toggle switch ── */
+.toggle-sw { width: 44px; height: 26px; border-radius: 13px; background: #e0e0e0; position: relative; flex-shrink: 0; transition: background 0.2s; cursor: pointer; }
+.toggle-sw::after { content:''; position:absolute; width:20px; height:20px; border-radius:50%; background:#fff; top:3px; left:3px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle-sw.on { background: #22c55e; }
+.toggle-sw.on::after { transform: translateX(18px); }
+.toggle-sw.denied { background: #f87171; }
+
+/* ── Sync status ── */
+.sync-status { font-size: 11px; margin-top: 6px; text-align: right; }
+.sync-status.ok    { color: #22c55e; }
+.sync-status.error { color: #f97316; }
+.sync-status.busy  { color: #64748b; }
+.sync-input { flex: 1; border: 1.5px solid #e8e8e8; border-radius: 10px; padding: 8px 12px; font-size: 14px; font-family: inherit; outline: none; color: #1a1a1a; min-width: 0; }
+.sync-input:focus { border-color: #4a7cf7; }
+
+/* ── Banner ── */
+.today-banner { background: #eef2ff; border: 1.5px solid #c7d7fd; border-radius: 14px; padding: 13px 16px; margin-bottom: 14px; display: flex; gap: 10px; align-items: flex-start; }
+.today-banner-icon { font-size: 18px; flex-shrink: 0; }
+.today-banner-text { font-size: 14px; color: #3b5ec6; line-height: 1.5; font-weight: 500; }
+
+/* ── Journal form ── */
+.journal-section { margin-top: 28px; border-top: 1px solid #f0f0f0; padding-top: 20px; }
+.journal-section-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 14px; }
+.journal-field { margin-bottom: 14px; }
+.journal-field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 7px; }
+.journal-rating { display: flex; gap: 6px; }
+.rating-btn { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #e8e8e8; background: none; font-size: 13px; font-weight: 700; color: #ccc; cursor: pointer; font-family: inherit; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+.rating-btn.active { background: #4a7cf7; border-color: #4a7cf7; color: #fff; }
+.journal-textarea { width: 100%; padding: 10px 13px; border: 1.5px solid #c8c8c8; border-radius: 10px; font-size: 14px; font-weight: 500; font-family: inherit; color: #1a1a1a; background: #fff; outline: none; resize: none; transition: border-color 0.15s; line-height: 1.4; }
+.journal-textarea:focus { border-color: #4a7cf7; }
+.journal-textarea::placeholder { color: #999; }
+
+/* ── Completion note ── */
+.done-note-wrap { padding: 7px 0 2px 48px; }
+.done-note-field { width: 100%; padding: 7px 11px; border: 1.5px solid #e0eaff; border-radius: 9px; font-size: 13px; font-weight: 500; font-family: inherit; color: #1a1a1a; background: #f0f4ff; outline: none; resize: none; line-height: 1.4; transition: border-color 0.15s, background 0.15s; }
+.done-note-field:focus { border-color: #4a7cf7; background: #fff; }
+.done-note-field::placeholder { color: #999; }
+
+/* ── Block tasks ── */
+.task-list { padding: 6px 0 0 48px; }
+.task-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid #f0f0f0; }
+.task-item:first-child { border-top: none; }
+.task-check { width: 20px; height: 20px; min-width: 20px; border-radius: 5px; border: 1.5px solid #d0d0d0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; transition: all 0.15s; }
+.task-check.done { background: #22c55e; border-color: #22c55e; color: #fff; }
+.task-text { flex: 1; font-size: 13px; font-weight: 500; color: #1a1a1a; line-height: 1.4; }
+.task-text.done { text-decoration: line-through; color: #aaa; }
+.task-del { background: none; border: none; cursor: pointer; font-size: 13px; color: #ccc; padding: 2px 4px; flex-shrink: 0; transition: color 0.15s; }
+.task-del:hover { color: #ef4444; }
+.task-add-row { display: flex; align-items: center; gap: 8px; padding: 8px 0 6px 48px; }
+.task-add-input { flex: 1; border: none; border-bottom: 1.5px solid #e0e0e0; background: none; font-size: 13px; font-weight: 500; font-family: inherit; color: #1a1a1a; outline: none; padding: 3px 2px; transition: border-color 0.15s; }
+.task-add-input:focus { border-bottom-color: #4a7cf7; }
+.task-add-input::placeholder { color: #bbb; }
+.task-add-btn { width: 24px; height: 24px; min-width: 24px; border-radius: 50%; border: 1.5px solid #d0d0d0; background: none; font-size: 18px; line-height: 1; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; padding: 0 0 1px; }
+.task-add-btn:hover { border-color: #4a7cf7; color: #4a7cf7; }
+.task-clear-done { display: block; font-size: 11px; color: #bbb; background: none; border: none; cursor: pointer; padding: 0 0 8px 48px; font-family: inherit; text-decoration: underline; transition: color 0.15s; }
+.task-clear-done:hover { color: #555; }
+
+/* ── OneDrive button ── */
+.onedrive-btn { border-color: #22c55e; color: #22c55e; margin-top: 10px; }
+.onedrive-btn:hover { background: #f0fdf4; }
+.onedrive-btn:disabled { border-color: #ddd; color: #bbb; cursor: not-allowed; background: none; }
+.onedrive-reset-btn { display: block; width: 100%; text-align: right; background: none; border: none; color: #94a3b8; font-size: 12px; font-family: inherit; cursor: pointer; padding: 4px 2px 16px; text-decoration: underline; }
+.onedrive-reset-btn:hover { color: #555; }
+
+/* ── Weekly target ── */
+.card-week-count { font-size: 11px; color: #64748b; margin-top: 5px; padding-left: 48px; font-variant-numeric: tabular-nums; }
+.card-week-count.on-target { color: #22c55e; font-weight: 700; }
+.target-summary { background: #f8fafc; border: 1.5px solid #e8ecf0; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; }
+.target-summary-title { font-size: 10px; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+.target-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+.target-row + .target-row { border-top: 1px solid #f0f0f0; }
+.target-name { font-size: 13px; color: #555; font-weight: 600; }
+.target-count { font-size: 13px; font-weight: 700; color: #94a3b8; }
+.target-count.hit { color: #22c55e; }
+.target-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: #e8ecf0; border-radius: 100px; overflow: hidden; }
+.target-bar-fill { height: 100%; background: #4a7cf7; border-radius: 100px; transition: width 0.3s; }
+.target-bar-fill.hit { background: #22c55e; }
+
+/* ── Journal tab ── */
+.journal-entry { background: #fafafa; border: 1.5px solid #efefef; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+.journal-entry-date { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+.journal-entry-scores { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.journal-score-pill { font-size: 12px; font-weight: 600; color: #4a7cf7; background: #eef2ff; padding: 3px 10px; border-radius: 100px; }
+.journal-entry-field { margin-bottom: 8px; }
+.journal-entry-label { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+.journal-entry-text { font-size: 13px; color: #333; margin-top: 2px; line-height: 1.5; }
+.export-btn { width: 100%; padding: 13px; background: none; border: 1.5px solid #4a7cf7; color: #4a7cf7; border-radius: 13px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; margin-bottom: 18px; transition: all 0.15s; }
+.export-btn:hover { background: #eef2ff; }
+
+/* ── Empty ── */
+.empty { text-align: center; padding: 50px 20px; color: #999; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty p { font-size: 14px; line-height: 1.6; }
+
+/* ── Skip / action buttons ── */
+.skip-btn { font-size: 11px; font-weight: 700; color: #666; background: none; border: 1.5px solid #ddd; border-radius: 100px; padding: 3px 10px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.skip-btn:hover      { border-color: #fca5a5; color: #ef4444; }
+.skip-btn.is-skipped { border-color: #fca5a5; color: #ef4444; background: #fef2f2; }
+
+/* ── Modal ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; z-index: 100; }
+.modal   { background: #fff; width: 100%; max-width: 500px; margin: 0 auto; border-radius: 22px 22px 0 0; padding: 28px 22px 44px; max-height: 90vh; overflow-y: auto; }
+.modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 22px; }
+.field    { margin-bottom: 16px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 7px; }
+.field input  { width: 100%; padding: 13px 15px; border: 1.5px solid #e8e8e8; border-radius: 11px; font-size: 15px; font-weight: 500; font-family: inherit; outline: none; color: #1a1a1a; transition: border-color 0.15s; }
+.field input:focus { border-color: #4a7cf7; }
+.field input::placeholder { color: #999; }
+
+/* ── Day picker (single schedule) ── */
+.day-presets  { display: flex; gap: 8px; margin-bottom: 10px; }
+.preset-btn   { flex: 1; padding: 8px 4px; border: 1.5px solid #e8e8e8; border-radius: 9px; background: none; font-size: 12px; font-weight: 600; color: #aaa; cursor: pointer; font-family: inherit; transition: all 0.15s; text-align: center; }
+.preset-btn:hover  { border-color: #4a7cf7; color: #4a7cf7; }
+.preset-btn.active { background: #eef2ff; border-color: #4a7cf7; color: #4a7cf7; }
+.day-toggles  { display: flex; gap: 6px; }
+.day-toggle-btn { flex: 1; aspect-ratio: 1; border: 1.5px solid #e8e8e8; border-radius: 50%; background: none; font-size: 12px; font-weight: 700; color: #888; cursor: pointer; font-family: inherit; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+.day-toggle-btn:hover  { border-color: #94b4fb; color: #4a7cf7; }
+.day-toggle-btn.active { background: #4a7cf7; border-color: #4a7cf7; color: #fff; }
+
+/* ── Schedule rows (multi schedule) ── */
+.multi-toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; cursor: pointer; }
+.multi-toggle-box { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; flex-shrink: 0; transition: all 0.15s; }
+.multi-toggle-box.on { background: #4a7cf7; border-color: #4a7cf7; }
+.multi-toggle-label { font-size: 13px; color: #555; font-weight: 600; }
+.sched-rows   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.sched-row    { display: flex; align-items: center; gap: 8px; background: #f8f9fb; border-radius: 12px; padding: 10px 12px; }
+.sched-days   { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.sched-day-btn { width: 28px; height: 28px; min-width: 28px; aspect-ratio: 1; border-radius: 50%; border: 1.5px solid #e8e8e8; background: none; font-size: 11px; font-weight: 700; color: #888; cursor: pointer; font-family: inherit; transition: all 0.15s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sched-day-btn.active { background: #4a7cf7; border-color: #4a7cf7; color: #fff; }
+.sched-day-btn.taken  { opacity: 0.2; cursor: not-allowed; pointer-events: none; }
+.sched-time   { width: 88px; padding: 7px 10px; border: 1.5px solid #e8e8e8; border-radius: 9px; font-size: 14px; font-family: inherit; outline: none; color: #1a1a1a; }
+.sched-time:focus { border-color: #4a7cf7; }
+.sched-del    { background: none; border: none; cursor: pointer; font-size: 16px; color: #aaa; padding: 4px; flex-shrink: 0; }
+.sched-del:hover { color: #ef4444; }
+.sched-add    { width: 100%; padding: 11px; border: 2px dashed #e0e0e0; border-radius: 12px; background: none; font-size: 13px; color: #bbb; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.sched-add:hover:not(:disabled) { border-color: #4a7cf7; color: #4a7cf7; }
+.sched-add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Modal buttons ── */
+.btn-save   { width: 100%; padding: 15px; background: #4a7cf7; color: #fff; border: none; border-radius: 13px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 6px; }
+.btn-save:hover { background: #3b6de8; }
+.btn-cancel { width: 100%; padding: 13px; background: none; color: #999; border: 1.5px solid #eee; border-radius: 13px; font-size: 15px; cursor: pointer; font-family: inherit; margin-top: 8px; }
+.btn-delete { width: 100%; padding: 13px; background: none; color: #ef4444; border: 1.5px solid #fee2e2; border-radius: 13px; font-size: 15px; cursor: pointer; font-family: inherit; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <h1 id="hTitle">Today</h1>
+      <div class="header-date" id="hDate"></div>
+    </div>
+    <div id="header-right"></div>
+  </div>
+  <div class="content" id="content"></div>
+  <nav class="nav">
+    <button class="nav-btn active" id="nb-today"   onclick="go('today')"><span class="nav-icon">📋</span>Today</button>
+    <button class="nav-btn" id="nb-tmrw"            onclick="go('tmrw')"><span class="nav-icon">🌙</span>Tomorrow</button>
+    <button class="nav-btn" id="nb-week"            onclick="go('week')"><span class="nav-icon">📅</span>Week</button>
+    <button class="nav-btn" id="nb-stats"           onclick="go('stats')"><span class="nav-icon">📈</span>Stats</button>
+    <button class="nav-btn" id="nb-journal"         onclick="go('journal')"><span class="nav-icon">📓</span>Journal</button>
+    <button class="nav-btn" id="nb-setup"           onclick="go('setup')"><span class="nav-icon">⚙️</span>Setup</button>
+  </nav>
+</div>
+
+<script>
+// ─── Supabase config ──────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://amkactcllziblbxocoik.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFta2FjdGNsbHppYmxieG9jb2lrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjYyMzQsImV4cCI6MjA5NTAwMjIzNH0.5xInHiBz-fB2PT3uvC6fA7GLcHGxjDTDpvp1_KtMI0k';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const ALL_DAYS  = [0,1,2,3,4,5,6];
+const WEEKDAYS  = [1,2,3,4,5];
+const DAY_ORDER = [1,2,3,4,5,6,0];
+const DAY_NAMES = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+const DEFAULT_ANCHORS = [
+  { id:'a1', name:'Morning Routine', mvs:'Make bed + brush teeth counts',                    schedules:[{days:[0,1,2,3,4,5,6], time:'08:00'}] },
+  { id:'a2', name:'Focus Block',     mvs:'20 min of any focused task counts',                schedules:[{days:[1,2,3,4,5],     time:'10:00'}] },
+  { id:'a3', name:'Gym',             mvs:'Any movement for 20 min counts',                   schedules:[{days:[0,1,2,3,4,5,6], time:'13:00'}], weeklyTarget:5 },
+  { id:'a4', name:'Life block',      mvs:'Maintain your environment and adult life',         schedules:[{days:[1,2,3,4,5],     time:'16:00'}] },
+  { id:'a5', name:'Social block',    mvs:'Prevent isolation and keep relational momentum',   schedules:[{days:[0,1,2,3,4,5,6], time:'19:00'}] },
+  { id:'a6', name:'Running',         mvs:'20 min easy run counts. Walk breaks fine.',        schedules:[{days:[1,3,5],         time:'19:00'}], weeklyTarget:3 },
+];
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+function migrateAnchor(a) {
+  if (a.schedules) return a;
+  return { id:a.id, name:a.name, mvs:a.mvs||'', schedules:[{ days:a.days??ALL_DAYS, time:a.time??'09:00' }] };
+}
+
+let anchors   = (JSON.parse(localStorage.getItem('anchors')) ?? DEFAULT_ANCHORS).map(migrateAnchor);
+let scorecard = JSON.parse(localStorage.getItem('scorecard')) ?? {};
+let notified  = JSON.parse(localStorage.getItem('notified'))  ?? {};
+let notes     = JSON.parse(localStorage.getItem('notes'))     ?? {};
+let skipped   = JSON.parse(localStorage.getItem('skipped'))   ?? {};
+let startDate = localStorage.getItem('startDate')             ?? null;
+let syncKey   = localStorage.getItem('syncKey')               ?? null;
+let syncStatus = 'idle'; // 'idle' | 'busy' | 'ok' | 'error'
+let journal    = JSON.parse(localStorage.getItem('journal'))    ?? {};
+let alignment  = JSON.parse(localStorage.getItem('alignment'))  ?? {};
+let done_notes = JSON.parse(localStorage.getItem('done_notes')) ?? {};
+let tasks      = JSON.parse(localStorage.getItem('tasks'))      ?? {};
+
+let view                = 'today';
+let editId              = null;
+let modalSchedules      = [{ days: new Set(ALL_DAYS), time: '09:00' }];
+let isMultiSchedule     = false;
+let modalTrackCompletion = false;
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('anchors',   JSON.stringify(anchors));
+  localStorage.setItem('scorecard', JSON.stringify(scorecard));
+  localStorage.setItem('notified',  JSON.stringify(notified));
+  localStorage.setItem('notes',     JSON.stringify(notes));
+  localStorage.setItem('skipped',   JSON.stringify(skipped));
+  localStorage.setItem('journal',    JSON.stringify(journal));
+  localStorage.setItem('alignment',  JSON.stringify(alignment));
+  localStorage.setItem('done_notes', JSON.stringify(done_notes));
+  localStorage.setItem('tasks',      JSON.stringify(tasks));
+  if (startDate) localStorage.setItem('startDate', startDate);
+  else           localStorage.removeItem('startDate');
+  if (syncKey) pushToSupabase();
+}
+
+async function pushToSupabase() {
+  if (!syncKey) return;
+  syncStatus = 'busy';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/anchor_data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: syncKey,
+        data: { anchors, scorecard, notes, skipped, startDate, journal, alignment, done_notes, tasks },
+        updated_at: new Date().toISOString()
+      })
+    });
+    syncStatus = res.ok ? 'ok' : 'error';
+  } catch(e) {
+    syncStatus = 'error';
+  }
+  if (view === 'setup') renderSetup();
+}
+
+async function pullFromSupabase() {
+  if (!syncKey) return;
+  syncStatus = 'busy';
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/anchor_data?id=eq.${encodeURIComponent(syncKey)}&select=data`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (rows.length > 0) {
+        const d = rows[0].data;
+        if (d.anchors)              anchors   = d.anchors.map(migrateAnchor);
+        if (d.scorecard)            scorecard = d.scorecard;
+        if (d.notes)                notes     = d.notes;
+        if (d.skipped)              skipped   = d.skipped;
+        if (d.startDate !== undefined) startDate = d.startDate;
+        if (d.journal)              journal    = d.journal;
+        if (d.alignment)            alignment  = d.alignment;
+        if (d.done_notes)           done_notes = d.done_notes;
+        if (d.tasks)                tasks      = d.tasks;
+        // persist locally without triggering another push
+        localStorage.setItem('anchors',   JSON.stringify(anchors));
+        localStorage.setItem('scorecard', JSON.stringify(scorecard));
+        localStorage.setItem('notes',     JSON.stringify(notes));
+        localStorage.setItem('skipped',   JSON.stringify(skipped));
+        localStorage.setItem('journal',    JSON.stringify(journal));
+        localStorage.setItem('alignment',  JSON.stringify(alignment));
+        localStorage.setItem('done_notes', JSON.stringify(done_notes));
+        localStorage.setItem('tasks',      JSON.stringify(tasks));
+        if (startDate) localStorage.setItem('startDate', startDate);
+        else           localStorage.removeItem('startDate');
+        // run migrations on fresh data, push back if anything changed
+        if (runMigrations()) {
+          localStorage.setItem('anchors', JSON.stringify(anchors));
+          pushToSupabase();
+        }
+      }
+      syncStatus = 'ok';
+    } else {
+      syncStatus = 'error';
+    }
+  } catch(e) {
+    syncStatus = 'error';
+  }
+  render();
+}
+
+function saveSyncKey(val) {
+  syncKey = val.trim() || null;
+  if (syncKey) localStorage.setItem('syncKey', syncKey);
+  else         localStorage.removeItem('syncKey');
+  if (syncKey) pullFromSupabase();
+  else { syncStatus = 'idle'; renderSetup(); }
+}
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+function parseDayKey(dk) {
+  const [y,m,d] = dk.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function toMin(t)   { const [h,m]=t.split(':').map(Number); return h*60+m; }
+function nowMin()   { const n=new Date(); return n.getHours()*60+n.getMinutes(); }
+function nowStr()   { const n=new Date(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`; }
+function pad(n)     { return String(n).padStart(2,'0'); }
+function dayKey(d=new Date()) { return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function dayOfWeek(d=new Date()) { return d.getDay(); }
+function fmtDate(d) { return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}); }
+function getMondayOf(date) {
+  const d=new Date(date), dow=d.getDay(), diff=dow===0?-6:1-dow;
+  d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d;
+}
+function tomorrowDate() { const d=new Date(); d.setDate(d.getDate()+1); return d; }
+function tomorrowKey()  { return dayKey(tomorrowDate()); }
+function tomorrowDOW()  { return dayOfWeek(tomorrowDate()); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ─── Weekly target helpers ────────────────────────────────────────────────────
+function getWeekCount(anchorId) {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const mon=getMondayOf(today);
+  let count=0;
+  for (let d=new Date(mon); d<=today; d.setDate(d.getDate()+1)) {
+    const dk=dayKey(d);
+    if(skipped[dk]) continue;
+    if(scorecard[dk]?.[anchorId]) count++;
+  }
+  return count;
+}
+
+function getEffectiveTarget(anchor) {
+  if (!anchor.weeklyTarget) return null;
+  const mon=getMondayOf(new Date());
+  let available=0;
+  for (let i=0; i<7; i++) {
+    const d=new Date(mon); d.setDate(mon.getDate()+i);
+    if(skipped[dayKey(d)]) continue;
+    if(anchorActiveOn(anchor, d.getDay())) available++;
+  }
+  return Math.min(anchor.weeklyTarget, available);
+}
+
+// Migrations — idempotent, run on every init and after every Supabase pull
+function runMigrations() {
+  let changed=false;
+  const hasRunning=anchors.some(a=>!a.deletedAt&&a.name.toLowerCase().includes('run'));
+  if (!hasRunning) {
+    anchors.push({id:uid(),name:'Running',mvs:'20 min easy run counts. Walk breaks fine.',schedules:[{days:[1,3,5],time:'19:00'}],weeklyTarget:3});
+    changed=true;
+  }
+  anchors.forEach(a=>{
+    if(!a.deletedAt&&a.name.toLowerCase()==='gym'&&!a.weeklyTarget){ a.weeklyTarget=5; changed=true; }
+    if(!a.deletedAt&&a.name.toLowerCase().includes('social')&&!a.weeklyTarget){ a.weeklyTarget=4; changed=true; }
+  });
+  return changed;
+}
+
+// ─── Schedule helpers ─────────────────────────────────────────────────────────
+function getScheduleForDay(anchor, dow) {
+  return anchor.schedules.find(s => s.days.includes(dow)) ?? null;
+}
+function anchorActiveOn(a, dow) { return !!getScheduleForDay(a, dow); }
+
+// For daily views — exclude deleted blocks
+function sortedForDay(dow) {
+  return anchors
+    .filter(a => !a.deletedAt && anchorActiveOn(a, dow))
+    .sort((a,b) => toMin(getScheduleForDay(a,dow).time) - toMin(getScheduleForDay(b,dow).time));
+}
+
+// For stats — include deleted blocks that were still active on that date
+function anchorActiveOnDate(a, d) {
+  if (!anchorActiveOn(a, d.getDay())) return false;
+  if (!a.deletedAt) return true;
+  const deletedDate = parseDayKey(a.deletedAt);
+  const checkDate   = new Date(d); checkDate.setHours(0,0,0,0);
+  return checkDate <= deletedDate;
+}
+
+function scheduleLabel(schedules) {
+  if (schedules.length === 1) {
+    const days = [...schedules[0].days].sort((a,b)=>a-b);
+    if (days.length===7)          return 'Every day';
+    if (days.join()==='1,2,3,4,5') return 'Weekdays';
+    if (days.join()==='0,6')       return 'Weekends';
+    return days.map(d=>DAY_NAMES[d]).join(' · ');
+  }
+  return schedules.map(s=>`${[...s.days].sort((a,b)=>a-b).map(d=>DAY_NAMES[d]).join('')} ${s.time}`).join(' / ');
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+function handleNotifToggle() {
+  const p = Notification.permission;
+  if (p === 'default') {
+    Notification.requestPermission().then(result => {
+      const tog = document.querySelector('#header-right .toggle-sw');
+      if (tog) {
+        tog.classList.remove('on','denied');
+        if (result==='granted') tog.classList.add('on');
+        else if (result==='denied') tog.classList.add('denied');
+      }
+    });
+    return;
+  }
+  if (p === 'granted') {
+    alert('To turn off notifications: go to your browser Settings → Privacy & Security → Site settings → Notifications → find this site.');
+  }
+  if (p === 'denied') {
+    alert('Notifications are blocked. Go to your browser Settings → Privacy & Security → Site settings → Notifications → find this site and allow.');
+  }
+}
+function checkNotifications() {
+  if (Notification.permission!=='granted') return;
+  const dk=dayKey(), ts=nowStr(), dow=dayOfWeek();
+  if (localStorage.getItem('notifDay')!==dk) {
+    notified={}; save(); localStorage.setItem('notifDay',dk);
+  }
+  sortedForDay(dow).forEach(a => {
+    const s = getScheduleForDay(a, dow);
+    if (!s) return;
+    const k = `${dk}_${a.id}`;
+    if (s.time===ts && !notified[k]) {
+      notified[k]=true; save();
+      new Notification(a.name, {body: a.mvs||'Time to transition.'});
+    }
+  });
+}
+setInterval(checkNotifications, 30000);
+checkNotifications();
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function go(v) {
+  view=v;
+  ['today','tmrw','week','stats','journal','setup'].forEach(x =>
+    document.getElementById(`nb-${x}`)?.classList.toggle('active',x===v)
+  );
+  render();
+}
+function render() {
+  document.getElementById('hDate').textContent = fmtDate(new Date());
+  if (view !== 'setup') document.getElementById('header-right').innerHTML = '';
+  ({today:renderToday, tmrw:renderTomorrow, week:renderWeek, stats:renderStats, journal:renderJournal, setup:renderSetup})[view]();
+}
+
+// ─── Today ────────────────────────────────────────────────────────────────────
+function renderToday() {
+  document.getElementById('hTitle').textContent = 'Today';
+  const dk=dayKey(), sc=scorecard[dk]??{}, nm=nowMin(), dow=dayOfWeek();
+  const blocks=sortedForDay(dow);
+  const j=journal[dk]??{};
+
+  let curIdx=-1;
+  blocks.forEach((a,i)=>{ if(toMin(getScheduleForDay(a,dow).time)<=nm) curIdx=i; });
+  if (curIdx===blocks.length-1 && curIdx!==-1 && nm-toMin(getScheduleForDay(blocks[curIdx],dow).time)>=120) curIdx=-1;
+
+  let html='';
+
+  // Morning banner from yesterday's Tomorrow alignment
+  if (alignment[dk]) {
+    html+=`<div class="today-banner"><span class="today-banner-icon">💬</span><span class="today-banner-text">${esc(alignment[dk])}</span></div>`;
+  }
+
+  if (!blocks.length) {
+    html+=`<div class="empty"><div class="empty-icon">⚓</div><p>Nothing scheduled for today.<br>Go to <strong>Setup</strong> to configure your blocks.</p></div>`;
+  } else {
+    const allDone=blocks.every(a=>sc[a.id]);
+    html+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="skip-btn" onclick="toggleAllToday()">${allDone?'Deselect all':'Check all'}</button>
+    </div>`;
+    blocks.forEach((a,i)=>{
+      const s=getScheduleForDay(a,dow);
+      const past=toMin(s.time)<nm, current=i===curIdx, done=!!sc[a.id];
+      let cls='anchor-card';
+      if(current) cls+=' is-current';
+      else if(done&&past) cls+=' is-done';
+      else if(!done&&past) cls+=' is-missed';
+      html+=`<div class="${cls}">
+        <div class="card-row">
+          <span class="card-time">${s.time}</span>
+          ${current?'<span class="now-badge">Now</span>':''}
+          <span class="card-name">${esc(a.name)}</span>
+          <button class="check-btn ${done?'checked':''}" onclick="toggle('${a.id}')">${done?'✓':''}</button>
+        </div>
+        ${a.mvs?`<div class="card-mvs">${esc(a.mvs)}</div>`:''}
+        ${notes[dk]?.[a.id]?`<div class="card-plan"><span>📝</span>${esc(notes[dk][a.id])}</div>`:''}
+        ${a.weeklyTarget?(()=>{const wc=getWeekCount(a.id);const et=getEffectiveTarget(a);const hit=wc>=et;return `<div class="card-week-count ${hit?'on-target':''}">${wc}/${et} this week${hit?' ✓':''}</div>`;})():''}
+        ${done&&a.trackCompletion?`<div class="done-note-wrap"><textarea class="done-note-field" rows="1" placeholder="What did you do?" onblur="saveDoneNote('${dk}','${a.id}',this.value)">${esc(done_notes[dk]?.[a.id]??'')}</textarea></div>`:''}
+        ${renderTaskList(a.id,'today')}
+      </div>`;
+    });
+    const doneCount=blocks.filter(a=>sc[a.id]).length;
+    html+=`<div class="daily-score">${doneCount} / ${blocks.length} done today</div>`;
+  }
+
+  // Evening journal form
+  html+=`<div class="journal-section">
+    <div class="journal-section-title">Evening reflection</div>
+    <div class="journal-field">
+      <label>What went well?</label>
+      <textarea class="journal-textarea" rows="2" placeholder="One thing that worked today…" onblur="setJournalText('wentWell',this.value)">${esc(j.wentWell??'')}</textarea>
+    </div>
+    <div class="journal-field">
+      <label>What got in the way?</label>
+      <textarea class="journal-textarea" rows="2" placeholder="What made today harder…" onblur="setJournalText('obstacle',this.value)">${esc(j.obstacle??'')}</textarea>
+    </div>
+    <div class="journal-field">
+      <label>What's on your mind right now?</label>
+      <textarea class="journal-textarea" rows="2" placeholder="Anything you're carrying…" onblur="setJournalText('mindDump',this.value)">${esc(j.mindDump??'')}</textarea>
+    </div>
+    <div class="journal-field">
+      <label>What do you want to let go of?</label>
+      <textarea class="journal-textarea" rows="2" placeholder="Leave it here so you don't carry it to bed…" onblur="setJournalText('letGo',this.value)">${esc(j.letGo??'')}</textarea>
+    </div>
+  </div>`;
+
+  document.getElementById('content').innerHTML=html;
+}
+
+// ─── Tomorrow ─────────────────────────────────────────────────────────────────
+function renderTomorrow() {
+  const tmrw=tomorrowDate(), tk=tomorrowKey(), dow=tomorrowDOW();
+  const blocks=sortedForDay(dow), saved=notes[tk]??{};
+  document.getElementById('hTitle').textContent='Tomorrow';
+  document.getElementById('hDate').textContent=fmtDate(tmrw);
+  if (!blocks.length) {
+    document.getElementById('content').innerHTML=`<div class="empty"><div class="empty-icon">🌙</div><p>Nothing scheduled for tomorrow.<br>Go to <strong>Setup</strong> to configure your blocks.</p></div>`;
+    return;
+  }
+  let html=blocks.map(a=>{
+    const s=getScheduleForDay(a,dow);
+    return `<div class="tmrw-card">
+      <div class="tmrw-row"><span class="card-time">${s.time}</span><span class="card-name">${esc(a.name)}</span></div>
+      <textarea class="plan-input" rows="2" placeholder="${planPlaceholder(a.name)}"
+        oninput="saveNote('${tk}','${a.id}',this.value)">${esc(saved[a.id]??'')}</textarea>
+      ${renderTaskList(a.id,'tmrw')}
+    </div>`;
+  }).join('');
+  html+=`<div class="tmrw-hint">Notes appear in Today tomorrow morning.<br>Leave blank if no plan yet.</div>`;
+
+  // Morning intention banner
+  html+=`<div class="journal-section">
+    <div class="journal-section-title">Morning intention</div>
+    <textarea class="journal-textarea" rows="3"
+      placeholder="Write yourself a note for tomorrow morning. It will appear as a banner when you open the app."
+      onblur="saveAlignment('${tk}',this.value)">${esc(alignment[tk]??'')}</textarea>
+  </div>`;
+
+  document.getElementById('content').innerHTML=html;
+}
+function planPlaceholder(name) {
+  const n=name.toLowerCase();
+  if(n.includes('cook')||n.includes('dinner')||n.includes('lunch')||n.includes('breakfast')) return 'What will you cook?';
+  if(n.includes('gym')||n.includes('sport')||n.includes('workout')||n.includes('run')) return 'What workout?';
+  if(n.includes('focus')||n.includes('work')||n.includes('study')) return 'What will you work on?';
+  if(n.includes('admin')||n.includes('network')) return 'Who will you reach out to?';
+  return "What's the plan?";
+}
+function saveNote(dateKey,anchorId,text) {
+  if(!notes[dateKey]) notes[dateKey]={};
+  if(text.trim()==='') delete notes[dateKey][anchorId];
+  else notes[dateKey][anchorId]=text;
+  save();
+}
+
+// ─── Journal ──────────────────────────────────────────────────────────────────
+function renderJournal() {
+  document.getElementById('hTitle').textContent='Journal';
+  const allDays=Object.keys(journal).sort().reverse();
+  const recent=allDays.slice(0,10);
+
+  let html=`<button class="export-btn" onclick="exportJournal()">📋 Export all to clipboard</button>
+  <button class="export-btn onedrive-btn" id="onedrive-btn" onclick="handleOneDriveExport()">💾 Update OneDrive file</button>
+  <button class="onedrive-reset-btn" onclick="resetOneDriveFile()">Change file location…</button>`;
+
+  if (!recent.length) {
+    html+=`<div class="empty"><div class="empty-icon">📓</div><p>Your reflections will appear here.<br>Fill in the evening section at the bottom of <strong>Today</strong> to get started.</p></div>
+    <div style="opacity:0.25;pointer-events:none;margin-top:4px">
+      <div class="journal-entry">
+        <div class="journal-entry-date">Example entry</div>
+        <div class="journal-entry-field">
+          <div class="journal-entry-label">Went well</div>
+          <div class="journal-entry-text">Got through the focus block without interruptions</div>
+        </div>
+        <div class="journal-entry-field">
+          <div class="journal-entry-label">In the way</div>
+          <div class="journal-entry-text">Phone kept pulling my attention after lunch</div>
+        </div>
+        <div class="journal-entry-field">
+          <div class="journal-entry-label">On my mind</div>
+          <div class="journal-entry-text">Need to book that appointment tomorrow</div>
+        </div>
+        <div class="journal-entry-field">
+          <div class="journal-entry-label">Letting go</div>
+          <div class="journal-entry-text">Didn't hit gym today — tomorrow is a new day</div>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    recent.forEach(dk=>{
+      const j=journal[dk];
+      const d=parseDayKey(dk);
+      const dateLabel=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+      const fields=[
+        {key:'wentWell',label:'Went well'},
+        {key:'obstacle',label:'In the way'},
+        {key:'mindDump',label:'On my mind'},
+        {key:'letGo',   label:'Letting go'},
+      ];
+      const hasContent=fields.some(f=>j[f.key]);
+      if(!hasContent) return;
+      html+=`<div class="journal-entry">
+        <div class="journal-entry-date">${dateLabel}</div>
+        ${fields.filter(f=>j[f.key]).map(f=>`<div class="journal-entry-field">
+          <div class="journal-entry-label">${f.label}</div>
+          <div class="journal-entry-text">${esc(j[f.key])}</div>
+        </div>`).join('')}
+      </div>`;
+    });
+  }
+  document.getElementById('content').innerHTML=html;
+}
+
+function setJournalRating(field, val) {
+  const dk=dayKey();
+  if(!journal[dk]) journal[dk]={};
+  journal[dk][field] = journal[dk][field]===val ? null : val;
+  journal[dk].savedAt=new Date().toISOString();
+  saveJournalData();
+  document.querySelectorAll(`.rating-group-${field} .rating-btn`).forEach((btn,i)=>{
+    btn.classList.toggle('active',(i+1)===journal[dk][field]);
+  });
+}
+
+function setJournalText(field, val) {
+  const dk=dayKey();
+  if(!journal[dk]) journal[dk]={};
+  const trimmed=val.trim();
+  if(trimmed) journal[dk][field]=trimmed;
+  else delete journal[dk][field];
+  journal[dk].savedAt=new Date().toISOString();
+  saveJournalData();
+}
+
+function saveJournalData() {
+  localStorage.setItem('journal',JSON.stringify(journal));
+  if(syncKey) pushToSupabase();
+}
+
+function saveAlignment(dateKey, val) {
+  if(val.trim()) alignment[dateKey]=val.trim();
+  else delete alignment[dateKey];
+  localStorage.setItem('alignment',JSON.stringify(alignment));
+  if(syncKey) pushToSupabase();
+}
+
+function exportJournal() {
+  const text=generateExportText();
+  const btn=document.querySelector('.export-btn');
+  navigator.clipboard.writeText(text).then(()=>{
+    if(btn){btn.textContent='✓ Copied to clipboard';setTimeout(()=>{btn.textContent='📋 Export all to clipboard';},2500);}
+  }).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+    if(btn){btn.textContent='✓ Copied';setTimeout(()=>{btn.textContent='📋 Export all to clipboard';},2500);}
+  });
+}
+
+// ─── Week ─────────────────────────────────────────────────────────────────────
+function renderWeek() {
+  document.getElementById('hTitle').textContent='This Week';
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  let html='';
+  for (let i=6; i>=-1; i--) {
+    const d=new Date(today); d.setDate(today.getDate()-i);
+    const dk=dayKey(d), dow=d.getDay(), sc=scorecard[dk]??{};
+    const future=d>today, isToday=i===0, isPast=d<today, daySkip=!!skipped[dk];
+    const blocks=sortedForDay(dow);
+    const label=isToday?'Today':i===-1?'Tomorrow':d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'});
+
+    let chips='';
+    if (!blocks.length) { chips=`<span class="week-none">Nothing scheduled</span>`; }
+    else {
+      blocks.forEach(a=>{
+        let cls=future?'chip-future':(sc[a.id]?'chip-hit':'chip-miss');
+        const interactive=(isPast||isToday)&&!daySkip;
+        chips+=`<span class="chip ${cls} ${interactive?'clickable':''}"
+          ${interactive?`onclick="togglePastBlock('${dk}','${a.id}')"`:''}>${esc(a.name)}</span>`;
+      });
+    }
+
+    const done=blocks.filter(a=>sc[a.id]).length;
+    const allDone=blocks.length>0&&done===blocks.length;
+    const tally=!future&&blocks.length&&!daySkip
+      ?`<div class="week-tally">${done}/${blocks.length} done</div>`
+      :daySkip?`<div class="skipped-label">Skipped</div>`:'';
+
+    const actionBtns=!future&&!isToday&&blocks.length?`
+      <button class="skip-btn" onclick="toggleAllBlocks('${dk}',${dow})">${allDone?'Deselect all':'Check all'}</button>
+      <button class="skip-btn ${daySkip?'is-skipped':''}" onclick="toggleSkip('${dk}')">${daySkip?'Unskip':'Skip day'}</button>`
+      :isToday&&blocks.length?`<button class="skip-btn" onclick="toggleAllBlocks('${dk}',${dow})">${allDone?'Deselect all':'Check all'}</button>`:'';
+
+    html+=`<div class="week-entry ${daySkip?'is-skipped':''}">
+      <div class="week-label-row">
+        <span class="week-label">${label}</span>
+        <div style="display:flex;gap:6px">${actionBtns}</div>
+      </div>
+      <div class="week-chips">${chips}</div>
+      ${tally}
+    </div>`;
+  }
+  document.getElementById('content').innerHTML=html;
+}
+function togglePastBlock(dk,anchorId) {
+  if(!scorecard[dk]) scorecard[dk]={};
+  scorecard[dk][anchorId]=!scorecard[dk][anchorId];
+  save(); renderWeek();
+}
+function toggleSkip(dk) {
+  if(skipped[dk]) delete skipped[dk]; else skipped[dk]=true;
+  save(); renderWeek();
+}
+function toggleAllBlocks(dk,dow) {
+  const blocks=sortedForDay(dow);
+  if(!scorecard[dk]) scorecard[dk]={};
+  const allDone=blocks.every(a=>scorecard[dk][a.id]);
+  blocks.forEach(a=>{ scorecard[dk][a.id]=!allDone; });
+  save(); renderWeek();
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function renderStats() {
+  document.getElementById('hTitle').textContent='Stats';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const thisMon=getMondayOf(today);
+  const startD=startDate?new Date(startDate.replace(/-/g,'/')):null;
+
+  function isBeforeStart(d) { return startD && d < startD; }
+
+  // All anchors relevant within a window (active + deleted-within-window)
+  function anchorsForDate(d) {
+    return anchors.filter(a => anchorActiveOnDate(a, d));
+  }
+
+  function tallyCalWeek(weeksBack) {
+    const start=new Date(thisMon); start.setDate(thisMon.getDate()-weeksBack*7);
+    const end=weeksBack===0?today:new Date(start); if(weeksBack>0) end.setDate(start.getDate()+6);
+    const perAnchor={};
+    anchors.forEach(a=>{ perAnchor[a.id]={done:0,scheduled:0,name:a.name}; });
+    let totalDone=0,totalScheduled=0;
+    for (let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) {
+      if(d>today||isBeforeStart(d)) continue;
+      const dk=dayKey(d); if(skipped[dk]) continue;
+      const sc=scorecard[dk]??{};
+      anchorsForDate(d).forEach(a=>{
+        if(!perAnchor[a.id]) perAnchor[a.id]={done:0,scheduled:0,name:a.name};
+        perAnchor[a.id].scheduled++; totalScheduled++;
+        if(sc[a.id]) { perAnchor[a.id].done++; totalDone++; }
+      });
+    }
+    return {perAnchor,totalDone,totalScheduled};
+  }
+
+  function calcConsistency() {
+    let totalDone=0,totalScheduled=0;
+    const dailyRates=[];
+    for (let i=29; i>=0; i--) {
+      const d=new Date(today); d.setDate(today.getDate()-i);
+      if(isBeforeStart(d)) { dailyRates.push(null); continue; }
+      const dk=dayKey(d); if(skipped[dk]) { dailyRates.push(null); continue; }
+      const blocks=anchorsForDate(d);
+      if(!blocks.length) { dailyRates.push(null); continue; }
+      const sc=scorecard[dk]??{};
+      const done=blocks.filter(a=>sc[a.id]).length;
+      totalDone+=done; totalScheduled+=blocks.length;
+      dailyRates.push((done/blocks.length)*100);
+    }
+    const pct=totalScheduled?Math.round((totalDone/totalScheduled)*100):null;
+    return {pct,dailyRates};
+  }
+
+  function avgWindow(daysAgo,len) {
+    let sum=0,count=0;
+    for (let i=daysAgo; i<daysAgo+len; i++) {
+      const d=new Date(today); d.setDate(today.getDate()-i);
+      if(isBeforeStart(d)) continue;
+      const dk=dayKey(d); if(skipped[dk]) continue;
+      const blocks=anchorsForDate(d); if(!blocks.length) continue;
+      const sc=scorecard[dk]??{};
+      sum+=(blocks.filter(a=>sc[a.id]).length/blocks.length)*100; count++;
+    }
+    return count?sum/count:null;
+  }
+
+  function buildSparkline(rates,dir) {
+    const W=440,H=60,px=2,py=6;
+    const color={up:'#22c55e',flat:'#94a3b8',down:'#f97316'}[dir];
+    let path='',first=true;
+    rates.forEach((r,i)=>{ if(r===null){first=true;return;}
+      const x=px+(i/29)*(W-2*px), y=H-py-(r/100)*(H-2*py);
+      path+=first?`M ${x.toFixed(1)} ${y.toFixed(1)}`:`L ${x.toFixed(1)} ${y.toFixed(1)}`; first=false;
+    });
+    if(!path) return `<div style="height:60px;display:flex;align-items:center;justify-content:center;color:#ddd;font-size:12px">Check off blocks to build your graph</div>`;
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px;display:block">
+      <path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  const thisWeek=tallyCalWeek(0);
+  const {pct:consistPct,dailyRates}=calcConsistency();
+  const recent=avgWindow(1,7), prev=avgWindow(8,7);
+  const diff=(recent!==null&&prev!==null)?recent-prev:0;
+  const dir=diff>10?'up':diff<-10?'down':'flat';
+  const trendLabel={up:'↑ Improving',flat:'→ Steady',down:'↓ Dipping'}[dir];
+  const scoreClass=consistPct===null?'mid':consistPct>=75?'high':consistPct>=50?'mid':consistPct>=25?'low':'poor';
+  const dayX=startD?Math.max(1,Math.floor((today-startD)/86400000)+1):null;
+
+  // Sort active anchors by today's time for this-week display
+  const activeAnchors = anchors.filter(a => !a.deletedAt);
+  const sorted=[...activeAnchors].sort((a,b)=>toMin((getScheduleForDay(a,dayOfWeek())||getScheduleForDay(a,1)||a.schedules[0]).time)-toMin((getScheduleForDay(b,dayOfWeek())||getScheduleForDay(b,1)||b.schedules[0]).time));
+
+  let html=`
+    <div class="stat-hero">
+      <div class="stat-hero-num">${thisWeek.totalDone}</div>
+      <div class="stat-hero-sub">blocks this week${dayX?` · Day ${dayX}`:''}</div>
+    </div>
+    <div class="stat-section-title">This week — by block</div>`;
+
+  sorted.forEach(a=>{
+    const p=thisWeek.perAnchor[a.id]??{done:0,scheduled:0};
+    if (a.weeklyTarget) {
+      const et=getEffectiveTarget(a);
+      const pct=et?Math.min(100,Math.round((p.done/et)*100)):100;
+      const full=p.done>=et;
+      html+=`<div class="stat-block">
+        <div class="stat-block-header"><span class="stat-block-name">${esc(a.name)}</span><span class="stat-block-frac">${p.done} / ${et} target</span></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill ${full?'full':''}" style="width:${pct}%"></div></div>
+      </div>`;
+    } else {
+      const pct=p.scheduled?Math.round((p.done/p.scheduled)*100):0;
+      const full=pct===100&&p.scheduled>0;
+      html+=`<div class="stat-block">
+        <div class="stat-block-header"><span class="stat-block-name">${esc(a.name)}</span><span class="stat-block-frac">${p.done} / ${p.scheduled}</span></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill ${full?'full':''}" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+  });
+
+  html+=`<hr class="stat-divider">
+    <div class="stat-section-title">Consistency — last 30 days</div>
+    <div class="consist-box">
+      <div class="consist-top">
+        <div class="consist-score ${scoreClass}">${consistPct!==null?consistPct+'%':'—'}</div>
+        <div class="consist-right">
+          <div class="consist-trend ${dir}">${trendLabel}</div>
+          <div class="consist-label">vs previous 7 days</div>
+        </div>
+      </div>
+      ${buildSparkline(dailyRates,dir)}
+      <div class="consist-foot">30-day rolling average · skipped days excluded</div>
+    </div>`;
+
+  const weekWindows=[0,1,2,3].map((n,i)=>{
+    const {totalDone:done,totalScheduled:scheduled}=tallyCalWeek(n);
+    const pct=scheduled?Math.round((done/scheduled)*100):null;
+    return {label:['This week','Last week','2 weeks ago','3 weeks ago'][i],done,scheduled,pct};
+  });
+
+  html+=`<hr class="stat-divider"><div class="stat-section-title">Last 4 weeks</div>`;
+  weekWindows.forEach((w,i)=>{
+    const pct=w.pct??0, full=pct===100&&w.scheduled>0;
+    const next=weekWindows[i+1];
+    let arrow='';
+    if(next&&w.pct!==null&&next.pct!==null) {
+      const d=w.pct-next.pct;
+      if(w.pct>=80&&next.pct>=80)  arrow=`<span class="week-arrow good">✓</span>`;
+      else if(d>15)                 arrow=`<span class="week-arrow up">↑</span>`;
+      else if(d<-15)                arrow=`<span class="week-arrow down">↓</span>`;
+      else                          arrow=`<span class="week-arrow flat">→</span>`;
+    }
+    html+=`<div class="stat-block">
+      <div class="stat-block-header">
+        <span class="stat-block-name">${w.label}</span>
+        <span style="display:flex;align-items:center">${arrow}<span class="stat-block-frac" style="margin-left:4px">${w.done} / ${w.scheduled}</span></span>
+      </div>
+      <div class="stat-bar-track"><div class="stat-bar-fill ${full?'full':''}" style="width:${pct}%"></div></div>
+    </div>`;
+  });
+
+  document.getElementById('content').innerHTML=html;
+}
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
+function renderSetup() {
+  document.getElementById('hTitle').textContent='Setup';
+
+  const np = Notification.permission;
+  const toggleCls = np==='granted'?'on':np==='denied'?'denied':'';
+
+  document.getElementById('header-right').innerHTML=`
+    <div class="header-track">
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px">
+        <span class="header-track-label" style="margin-bottom:0">Notifications</span>
+        <div class="toggle-sw ${toggleCls}" onclick="handleNotifToggle()"></div>
+      </div>
+      <div class="header-track-label">Tracking from</div>
+      <input class="header-track-input" type="date" value="${startDate??''}" onchange="saveStartDate(this.value)">
+    </div>`;
+
+  // Sync status label
+  const syncLabel = syncStatus==='ok'  ? '<span class="sync-status ok">✓ Synced</span>'
+                  : syncStatus==='error'? '<span class="sync-status error">⚠ Sync failed — check key</span>'
+                  : syncStatus==='busy' ? '<span class="sync-status busy">Syncing…</span>'
+                  : '';
+
+  const blocks=[...anchors].filter(a=>!a.deletedAt).sort((a,b)=>toMin(a.schedules[0].time)-toMin(b.schedules[0].time));
+
+  let html=`
+    <div class="setup-section">
+      <div class="setup-section-title">Anchor blocks</div>`;
+
+  blocks.forEach(a=>{
+    html+=`<div class="setup-item">
+      <div class="setup-info">
+        <div class="setup-time">${a.schedules.map(s=>s.time).join(' / ')}</div>
+        <div class="setup-name">${esc(a.name)}</div>
+        ${a.mvs?`<div class="setup-sub">${esc(a.mvs)}</div>`:''}
+        <span class="setup-days-badge">${scheduleLabel(a.schedules)}${a.weeklyTarget?` · ${a.weeklyTarget}×/week target`:''}${a.trackCompletion?' · 📝 tracked':''}</span>
+      </div>
+      <button class="edit-btn" onclick="openEdit('${a.id}')">✏️</button>
+    </div>`;
+  });
+
+  html+=`<button class="add-btn" onclick="openAdd()">+ Add anchor block</button></div>
+
+    <div class="setup-section">
+      <div class="setup-section-title">Sync</div>
+      <div class="start-date-row">
+        <div class="start-date-info">
+          <div class="start-date-label">Sync key</div>
+          <div class="start-date-sub">Same key on all devices syncs your data</div>
+        </div>
+        <input class="sync-input" type="text" placeholder="e.g. myanchors" value="${esc(syncKey??'')}"
+          onchange="saveSyncKey(this.value)">
+      </div>
+      ${syncLabel?`<div style="text-align:right;margin-top:6px">${syncLabel}</div>`:''}
+    </div>`;
+  document.getElementById('content').innerHTML=html;
+}
+
+function saveStartDate(val) { startDate=val||null; save(); }
+
+// ─── Toggles ──────────────────────────────────────────────────────────────────
+function toggle(id) {
+  const dk=dayKey(); if(!scorecard[dk]) scorecard[dk]={};
+  scorecard[dk][id]=!scorecard[dk][id]; save(); renderToday();
+}
+function toggleAllToday() {
+  const dk=dayKey(), blocks=sortedForDay(dayOfWeek());
+  if(!scorecard[dk]) scorecard[dk]={};
+  const allDone=blocks.every(a=>scorecard[dk][a.id]);
+  blocks.forEach(a=>{ scorecard[dk][a.id]=!allDone; });
+  save(); renderToday();
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+function openAdd() {
+  editId=null;
+  modalSchedules=[{days:new Set(ALL_DAYS),time:'09:00'}];
+  isMultiSchedule=false;
+  modalTrackCompletion=false;
+  showModal({name:'',mvs:''});
+}
+function openEdit(id) {
+  editId=id;
+  const a=anchors.find(x=>x.id===id);
+  modalSchedules=a.schedules.map(s=>({days:new Set(s.days),time:s.time}));
+  isMultiSchedule=modalSchedules.length>1;
+  modalTrackCompletion=a.trackCompletion??false;
+  showModal(a);
+}
+function showModal(data) {
+  closeModal();
+  const el=document.createElement('div');
+  el.className='overlay'; el.id='modal';
+  el.onclick=e=>{ if(e.target===el) closeModal(); };
+  el.innerHTML=`<div class="modal">
+    <h2>${editId?'Edit Block':'New Block'}</h2>
+    <div class="field"><label>Block name</label><input id="f-name" placeholder="e.g. Focus Block" value="${esc(data.name)}"></div>
+    <div class="field"><label>Minimum that counts</label><input id="f-mvs" placeholder="e.g. 20 min of any task counts" value="${esc(data.mvs||'')}"></div>
+    <div class="field"><label>Schedule</label>
+      <div class="multi-toggle-row" onclick="toggleMultiSchedule()">
+        <div class="multi-toggle-box ${isMultiSchedule?'on':''}" id="multi-chk">${isMultiSchedule?'✓':''}</div>
+        <span class="multi-toggle-label">Different time per day group</span>
+      </div>
+      <div id="schedule-picker"></div>
+    </div>
+    <div class="field"><label>Weekly target <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0">— optional, e.g. 5 for gym 5×/week</span></label>
+      <input id="f-target" type="number" min="1" max="7" placeholder="Leave blank for daily tracking" value="${data.weeklyTarget||''}">
+    </div>
+    <div class="multi-toggle-row" onclick="toggleTrackCompletion()">
+      <div class="multi-toggle-box ${modalTrackCompletion?'on':''}" id="track-chk">${modalTrackCompletion?'✓':''}</div>
+      <span class="multi-toggle-label">Track what I did (note field in Today)</span>
+    </div>
+    <button class="btn-save" onclick="saveAnchor()">Save</button>
+    <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+    ${editId?`<button class="btn-delete" onclick="deleteAnchor()">Delete this block</button>`:''}
+  </div>`;
+  document.body.appendChild(el);
+  renderSchedulePicker();
+  document.getElementById('f-name').focus();
+}
+function closeModal() { document.getElementById('modal')?.remove(); }
+
+function toggleTrackCompletion() {
+  modalTrackCompletion=!modalTrackCompletion;
+  const box=document.getElementById('track-chk');
+  if(box){box.classList.toggle('on',modalTrackCompletion);box.textContent=modalTrackCompletion?'✓':'';}
+}
+
+function saveDoneNote(dateKey, anchorId, val) {
+  if(!done_notes[dateKey]) done_notes[dateKey]={};
+  if(val.trim()) done_notes[dateKey][anchorId]=val.trim();
+  else delete done_notes[dateKey][anchorId];
+  localStorage.setItem('done_notes',JSON.stringify(done_notes));
+  if(syncKey) pushToSupabase();
+}
+
+// ─── Block tasks ──────────────────────────────────────────────────────────────
+function renderTaskList(anchorId, currentView) {
+  const list = tasks[anchorId] ?? [];
+  const hasDone = list.some(t => t.done);
+  let html = '';
+  if (list.length) {
+    html += `<div class="task-list">`;
+    list.forEach(t => {
+      html += `<div class="task-item">
+        <button class="task-check ${t.done?'done':''}" onclick="toggleTask('${anchorId}','${t.id}','${currentView}')">${t.done?'✓':''}</button>
+        <span class="task-text ${t.done?'done':''}">${esc(t.text)}</span>
+        <button class="task-del" onclick="deleteTask('${anchorId}','${t.id}','${currentView}')">✕</button>
+      </div>`;
+    });
+    html += `</div>`;
+    if (hasDone) html += `<button class="task-clear-done" onclick="clearDoneTasks('${anchorId}','${currentView}')">Clear done</button>`;
+  }
+  html += `<div class="task-add-row">
+    <input class="task-add-input" id="ti-${anchorId}" placeholder="Add a task…"
+      onkeydown="if(event.key==='Enter'){handleAddTask('${anchorId}',this,'${currentView}');}">
+    <button class="task-add-btn" onclick="handleAddTask('${anchorId}',document.getElementById('ti-${anchorId}'),'${currentView}')">+</button>
+  </div>`;
+  return html;
+}
+
+function saveTasks() {
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+  if (syncKey) pushToSupabase();
+}
+function handleAddTask(anchorId, input, currentView) {
+  const text = input.value.trim();
+  if (!text) return;
+  if (!tasks[anchorId]) tasks[anchorId] = [];
+  tasks[anchorId].push({ id: uid(), text, done: false, createdAt: dayKey() });
+  saveTasks();
+  if (currentView==='today') renderToday(); else renderTomorrow();
+}
+function toggleTask(anchorId, taskId, currentView) {
+  const t = (tasks[anchorId]??[]).find(x => x.id===taskId);
+  if (t) { t.done = !t.done; saveTasks(); }
+  if (currentView==='today') renderToday(); else renderTomorrow();
+}
+function deleteTask(anchorId, taskId, currentView) {
+  if (!tasks[anchorId]) return;
+  tasks[anchorId] = tasks[anchorId].filter(t => t.id!==taskId);
+  saveTasks();
+  if (currentView==='today') renderToday(); else renderTomorrow();
+}
+function clearDoneTasks(anchorId, currentView) {
+  if (!tasks[anchorId]) return;
+  tasks[anchorId] = tasks[anchorId].filter(t => !t.done);
+  saveTasks();
+  if (currentView==='today') renderToday(); else renderTomorrow();
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function generateExportText() {
+  const lines=['ANCHOR SYSTEM — Journal Export',`Generated: ${new Date().toLocaleString()}`,''];
+  const allDayKeys=[...new Set([...Object.keys(journal),...Object.keys(done_notes),...Object.keys(scorecard).filter(dk=>{
+    const d=parseDayKey(dk); return anchors.some(a=>anchorActiveOnDate(a,d));
+  })])].sort().reverse();
+  if(!allDayKeys.length){lines.push('No entries yet.');return lines.join('\n');}
+  lines.push(`Anchors tracked since: ${startDate??'not set'}`,'');
+  allDayKeys.forEach(dk=>{
+    const j=journal[dk]??{};
+    const d=parseDayKey(dk);
+    lines.push(`── ${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} ──`);
+    const sc=scorecard[dk]??{};
+    const dayBlocks=anchors.filter(a=>anchorActiveOnDate(a,d));
+    if(dayBlocks.length){
+      const done=dayBlocks.filter(a=>sc[a.id]).length;
+      lines.push(`  Blocks: ${done}/${dayBlocks.length} (${Math.round(done/dayBlocks.length*100)}%)`);
+      dayBlocks.forEach(a=>{
+        const plan=notes[dk]?.[a.id];
+        const did=done_notes[dk]?.[a.id];
+        lines.push(`    ${sc[a.id]?'✓':'○'} ${a.name}`);
+        if(plan) lines.push(`       Planned: ${plan}`);
+        if(did)  lines.push(`       Did: ${did}`);
+      });
+    }
+    if(j.wentWell) lines.push(`  Went well: ${j.wentWell}`);
+    if(j.obstacle) lines.push(`  In the way: ${j.obstacle}`);
+    if(j.mindDump) lines.push(`  On my mind: ${j.mindDump}`);
+    if(j.letGo)    lines.push(`  Letting go: ${j.letGo}`);
+    lines.push('');
+  });
+  // Pending tasks per block
+  const activeAnchorsWithTasks = anchors.filter(a => !a.deletedAt && (tasks[a.id]??[]).length);
+  if (activeAnchorsWithTasks.length) {
+    lines.push('── Pending tasks ──');
+    activeAnchorsWithTasks.forEach(a => {
+      const list = tasks[a.id] ?? [];
+      const pending = list.filter(t => !t.done);
+      const done    = list.filter(t =>  t.done);
+      lines.push(`  ${a.name}`);
+      pending.forEach(t => lines.push(`    ☐ ${t.text}`));
+      done.forEach(t    => lines.push(`    ✓ ${t.text}`));
+    });
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+// ─── OneDrive (File System Access API) ────────────────────────────────────────
+function openFileDB() {
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open('anchor_files',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore('handles');
+    req.onsuccess=e=>resolve(e.target.result);
+    req.onerror=reject;
+  });
+}
+async function saveFileHandle(handle) {
+  const db=await openFileDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('handles','readwrite');
+    tx.objectStore('handles').put(handle,'onedrive');
+    tx.oncomplete=resolve; tx.onerror=reject;
+  });
+}
+async function getFileHandle() {
+  const db=await openFileDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('handles','readonly');
+    const req=tx.objectStore('handles').get('onedrive');
+    req.onsuccess=e=>resolve(e.target.result??null);
+    req.onerror=reject;
+  });
+}
+async function handleOneDriveExport() {
+  const btn=document.getElementById('onedrive-btn');
+  if(btn){btn.textContent='Saving…';btn.disabled=true;}
+  try {
+    if(!('showSaveFilePicker' in window)) throw new Error('not-supported');
+    let handle=await getFileHandle();
+    if(!handle) {
+      handle=await window.showSaveFilePicker({
+        suggestedName:'anchor-journal.txt',
+        types:[{description:'Text file',accept:{'text/plain':['.txt']}}]
+      });
+      await saveFileHandle(handle);
+    }
+    const perm=await handle.requestPermission({mode:'readwrite'});
+    if(perm!=='granted') throw new Error('permission-denied');
+    const writable=await handle.createWritable();
+    await writable.write(generateExportText());
+    await writable.close();
+    if(btn){btn.textContent='✓ Saved to OneDrive';setTimeout(()=>{btn.textContent='💾 Update OneDrive file';btn.disabled=false;},2500);}
+  } catch(e) {
+    if(btn){
+      if(e.message==='not-supported') btn.textContent='⚠ Desktop Chrome only';
+      else if(e.name==='AbortError')  btn.textContent='💾 Update OneDrive file';
+      else                            btn.textContent='⚠ Failed — try again';
+      btn.disabled=false;
+      if(e.name!=='AbortError') setTimeout(()=>{btn.textContent='💾 Update OneDrive file';},3000);
+    }
+  }
+}
+async function resetOneDriveFile() {
+  const db=await openFileDB();
+  const tx=db.transaction('handles','readwrite');
+  tx.objectStore('handles').delete('onedrive');
+  renderJournal();
+}
+
+function toggleMultiSchedule() {
+  isMultiSchedule=!isMultiSchedule;
+  if(!isMultiSchedule&&modalSchedules.length>1) modalSchedules=[modalSchedules[0]];
+  const box=document.getElementById('multi-chk');
+  if(box) { box.classList.toggle('on',isMultiSchedule); box.textContent=isMultiSchedule?'✓':''; }
+  renderSchedulePicker();
+}
+function takenDays(exceptRow) {
+  const taken=new Set();
+  modalSchedules.forEach((s,i)=>{ if(i!==exceptRow) s.days.forEach(d=>taken.add(d)); });
+  return taken;
+}
+function allDaysClaimed() {
+  const used=new Set(); modalSchedules.forEach(s=>s.days.forEach(d=>used.add(d)));
+  return used.size===7;
+}
+function renderSchedulePicker() {
+  const el=document.getElementById('schedule-picker'); if(!el) return;
+  if (!isMultiSchedule) {
+    const s=modalSchedules[0];
+    const days=[...s.days].sort((a,b)=>a-b);
+    const isAll=days.length===7, isWeek=days.join()==='1,2,3,4,5', isWknd=days.join()==='0,6';
+    el.innerHTML=`
+      <div style="margin-bottom:10px">
+        <div class="field" style="margin-bottom:8px"><label>Time</label><input type="time" id="single-time" value="${s.time}" oninput="modalSchedules[0].time=this.value"></div>
+      </div>
+      <div class="day-presets">
+        <button class="preset-btn ${isAll?'active':''}" onclick="setPreset('all')">Every day</button>
+        <button class="preset-btn ${isWeek?'active':''}" onclick="setPreset('week')">Weekdays</button>
+        <button class="preset-btn ${isWknd?'active':''}" onclick="setPreset('weekend')">Weekends</button>
+      </div>
+      <div class="day-toggles">
+        ${DAY_ORDER.map(d=>`<button class="day-toggle-btn ${s.days.has(d)?'active':''}" onclick="toggleSingleDay(${d})">${DAY_NAMES[d]}</button>`).join('')}
+      </div>`;
+  } else {
+    let rows=modalSchedules.map((s,i)=>{
+      const taken=takenDays(i);
+      const dayBtns=DAY_ORDER.map(d=>`<button class="sched-day-btn ${s.days.has(d)?'active':''} ${taken.has(d)?'taken':''}" onclick="toggleSchedDay(${i},${d})">${DAY_NAMES[d]}</button>`).join('');
+      const del=modalSchedules.length>1?`<button class="sched-del" onclick="removeSchedRow(${i})">×</button>`:'';
+      return `<div class="sched-row">${dayBtns}<input class="sched-time" type="time" value="${s.time}" oninput="modalSchedules[${i}].time=this.value">${del}</div>`;
+    }).join('');
+    const disabled=allDaysClaimed();
+    el.innerHTML=`<div class="sched-rows">${rows}</div>
+      <button class="sched-add" ${disabled?'disabled':''} onclick="addSchedRow()">+ Add schedule</button>`;
+  }
+}
+function setPreset(p) {
+  if(p==='all')     modalSchedules[0].days=new Set(ALL_DAYS);
+  if(p==='week')    modalSchedules[0].days=new Set(WEEKDAYS);
+  if(p==='weekend') modalSchedules[0].days=new Set([0,6]);
+  renderSchedulePicker();
+}
+function toggleSingleDay(d) {
+  if(modalSchedules[0].days.has(d)) modalSchedules[0].days.delete(d);
+  else modalSchedules[0].days.add(d);
+  renderSchedulePicker();
+}
+function toggleSchedDay(row,d) {
+  if(takenDays(row).has(d)) return;
+  if(modalSchedules[row].days.has(d)) modalSchedules[row].days.delete(d);
+  else modalSchedules[row].days.add(d);
+  renderSchedulePicker();
+}
+function addSchedRow() {
+  if(allDaysClaimed()) return;
+  modalSchedules.push({days:new Set(),time:'09:00'});
+  renderSchedulePicker();
+}
+function removeSchedRow(i) {
+  if(modalSchedules.length<=1) return;
+  modalSchedules.splice(i,1);
+  renderSchedulePicker();
+}
+function saveAnchor() {
+  const name=document.getElementById('f-name').value.trim();
+  const mvs=document.getElementById('f-mvs').value.trim();
+  if(!name) { document.getElementById('f-name').style.borderColor='#ef4444'; return; }
+  const schedules=modalSchedules.filter(s=>s.days.size>0).map(s=>({days:[...s.days],time:s.time}));
+  if(!schedules.length) return;
+  const weeklyTarget=parseInt(document.getElementById('f-target').value)||null;
+  const trackCompletion=modalTrackCompletion;
+  if(editId) {
+    const idx=anchors.findIndex(a=>a.id===editId);
+    anchors[idx]={...anchors[idx], name, mvs, schedules, weeklyTarget, trackCompletion};
+  } else {
+    anchors.push({id:uid(),name,mvs,schedules,weeklyTarget,trackCompletion});
+  }
+  save(); closeModal(); renderSetup();
+}
+function deleteAnchor() {
+  const a=anchors.find(x=>x.id===editId);
+  if(!confirm(`Remove "${a?.name}"?\n\nIt will disappear from your daily view immediately but will still count in stats for the next 30 days.`)) return;
+  const idx=anchors.findIndex(x=>x.id===editId);
+  anchors[idx]={ ...anchors[idx], deletedAt: dayKey() };
+  save(); closeModal(); renderSetup();
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function purgeOldDeleted() {
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30); cutoff.setHours(0,0,0,0);
+  anchors=anchors.filter(a=>{ if(!a.deletedAt) return true; return parseDayKey(a.deletedAt)>=cutoff; });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+purgeOldDeleted();
+if (runMigrations()) save();
+render();
+if (syncKey) pullFromSupabase();
+setInterval(()=>{ if(view==='today') renderToday(); },60000);
+</script>
+</body>
+</html>

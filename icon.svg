@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#4a7cf7"/>
+  <!-- Top ring -->
+  <circle cx="256" cy="148" r="44" fill="none" stroke="white" stroke-width="30"/>
+  <!-- Stock (horizontal crossbar) -->
+  <line x1="144" y1="218" x2="368" y2="218" stroke="white" stroke-width="30" stroke-linecap="round"/>
+  <!-- Shank (vertical bar) -->
+  <line x1="256" y1="148" x2="256" y2="408" stroke="white" stroke-width="30" stroke-linecap="round"/>
+  <!-- Left fluke -->
+  <path d="M 256 408 Q 176 408 148 364" fill="none" stroke="white" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Right fluke -->
+  <path d="M 256 408 Q 336 408 364 364" fill="none" stroke="white" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Left tip -->
+  <circle cx="144" cy="360" r="20" fill="white"/>
+  <!-- Right tip -->
+  <circle cx="368" cy="360" r="20" fill="white"/>
+</svg>
