@@ -1216,7 +1216,8 @@ function saveDoneNote(dateKey, anchorId, val) {
 
 // ─── Block tasks ──────────────────────────────────────────────────────────────
 function renderTaskList(anchorId, currentView) {
-  const list = tasks[anchorId] ?? [];
+  const targetDate = currentView === 'tmrw' ? tomorrowKey() : dayKey();
+  const list = (tasks[anchorId] ?? []).filter(t => !t.createdAt || t.createdAt === targetDate);
   const hasDone = list.some(t => t.done);
   let html = '';
   if (list.length) {
@@ -1247,7 +1248,7 @@ function handleAddTask(anchorId, input, currentView) {
   const text = input.value.trim();
   if (!text) return;
   if (!tasks[anchorId]) tasks[anchorId] = [];
-  tasks[anchorId].push({ id: uid(), text, done: false, createdAt: dayKey() });
+  tasks[anchorId].push({ id: uid(), text, done: false, createdAt: currentView === 'tmrw' ? tomorrowKey() : dayKey() });
   saveTasks();
   if (currentView==='today') renderToday(); else renderTomorrow();
 }
