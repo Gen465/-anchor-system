@@ -1484,7 +1484,11 @@ purgeOldDeleted();
 if (runMigrations()) save();
 render();
 if (syncKey) pullFromSupabase();
-setInterval(()=>{ if(view==='today') renderToday(); },60000);
+setInterval(()=>{
+  const active=document.activeElement;
+  const isTyping=active && document.getElementById('content')?.contains(active) && (active.tagName==='TEXTAREA'||active.tagName==='INPUT');
+  if(view==='today' && !isTyping) renderToday();
+},60000);
 </script>
 </body>
 </html>
