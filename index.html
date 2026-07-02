@@ -57,8 +57,8 @@ body {
   transition: background 0.2s, border-color 0.2s, opacity 0.2s;
 }
 .anchor-card.is-current { background: #eef2ff; border-color: #4a7cf7; }
-.anchor-card.is-done    { opacity: 0.45; }
-.anchor-card.is-missed  { opacity: 0.35; }
+.anchor-card.is-done    { background: #f6fef9; border-color: #d1fae5; }
+.anchor-card.is-missed  { background: #fafafa; border-color: #e8e8e8; }
 .card-row { display: flex; align-items: center; gap: 10px; }
 .card-time { font-size: 12px; color: #666; min-width: 38px; font-variant-numeric: tabular-nums; }
 .card-name { flex: 1; font-size: 16px; font-weight: 600; color: #1a1a1a; }
@@ -73,7 +73,7 @@ body {
   justify-content: center; font-size: 15px; flex-shrink: 0; transition: all 0.15s;
 }
 .check-btn.checked { background: #22c55e; border-color: #22c55e; color: #fff; }
-.card-mvs  { font-size: 12px; color: #666; margin-top: 7px; padding-left: 48px; line-height: 1.4; }
+.card-mvs  { font-size: 12px; color: #666; margin-top: 7px; line-height: 1.4; }
 .card-plan {
   font-size: 12px; color: #4a7cf7; margin-top: 6px; padding-left: 48px;
   display: flex; align-items: flex-start; gap: 5px; line-height: 1.4;
@@ -664,7 +664,7 @@ function renderToday() {
           <button class="check-btn ${done?'checked':''}" onclick="toggle('${a.id}')">${done?'✓':''}</button>
         </div>
         ${a.mvs?`<div class="card-mvs">${esc(a.mvs)}</div>`:''}
-        ${notes[dk]?.[a.id]?`<div class="card-plan"><span>📝</span>${esc(notes[dk][a.id])}</div>`:''}
+        <textarea class="plan-input" rows="2" placeholder="${planPlaceholder(a.name)}" oninput="saveNote('${dk}','${a.id}',this.value)">${esc(notes[dk]?.[a.id]??'')}</textarea>
         ${a.weeklyTarget?(()=>{const wc=getWeekCount(a.id);const et=getEffectiveTarget(a);const hit=wc>=et;return `<div class="card-week-count ${hit?'on-target':''}">${wc}/${et} this week${hit?' ✓':''}</div>`;})():''}
         ${done&&a.trackCompletion?`<div class="done-note-wrap"><textarea class="done-note-field" rows="1" placeholder="What did you do?" onblur="saveDoneNote('${dk}','${a.id}',this.value)">${esc(done_notes[dk]?.[a.id]??'')}</textarea></div>`:''}
         ${renderTaskList(a.id,'today')}
@@ -747,7 +747,7 @@ function saveNote(dateKey,anchorId,text) {
 // ─── Journal ──────────────────────────────────────────────────────────────────
 function renderJournal() {
   document.getElementById('hTitle').textContent='Journal';
-  const allDays=Object.keys(journal).sort().reverse();
+  const allDays=[...new Set([...Object.keys(journal),...Object.keys(notes)])].sort().reverse();
   const recent=allDays.slice(0,10);
 
   let html=`<button class="export-btn" onclick="exportJournal()">📋 Export all to clipboard</button>
@@ -779,7 +779,7 @@ function renderJournal() {
     </div>`;
   } else {
     recent.forEach(dk=>{
-      const j=journal[dk];
+      const j=journal[dk]??{};
       const d=parseDayKey(dk);
       const dateLabel=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
       const fields=[
@@ -789,9 +789,16 @@ function renderJournal() {
         {key:'letGo',   label:'Letting go'},
       ];
       const hasContent=fields.some(f=>j[f.key]);
-      if(!hasContent) return;
+      const blockPlans=Object.entries(notes[dk]??{})
+        .map(([aid,text])=>({name:anchors.find(a=>a.id===aid)?.name,text}))
+        .filter(p=>p.name&&p.text&&p.text.trim());
+      if(!hasContent&&!blockPlans.length) return;
       html+=`<div class="journal-entry">
         <div class="journal-entry-date">${dateLabel}</div>
+        ${blockPlans.length?`<div class="journal-entry-field">
+          <div class="journal-entry-label">Block plans</div>
+          ${blockPlans.map(p=>`<div class="journal-entry-text"><strong>${esc(p.name)}:</strong> ${esc(p.text)}</div>`).join('')}
+        </div>`:''}
         ${fields.filter(f=>j[f.key]).map(f=>`<div class="journal-entry-field">
           <div class="journal-entry-label">${f.label}</div>
           <div class="journal-entry-text">${esc(j[f.key])}</div>
@@ -1209,7 +1216,8 @@ function saveDoneNote(dateKey, anchorId, val) {
 
 // ─── Block tasks ──────────────────────────────────────────────────────────────
 function renderTaskList(anchorId, currentView) {
-  const list = tasks[anchorId] ?? [];
+  const targetDate = currentView === 'tmrw' ? tomorrowKey() : dayKey();
+  const list = (tasks[anchorId] ?? []).filter(t => !t.createdAt || t.createdAt === targetDate);
   const hasDone = list.some(t => t.done);
   let html = '';
   if (list.length) {
@@ -1240,7 +1248,7 @@ function handleAddTask(anchorId, input, currentView) {
   const text = input.value.trim();
   if (!text) return;
   if (!tasks[anchorId]) tasks[anchorId] = [];
-  tasks[anchorId].push({ id: uid(), text, done: false, createdAt: dayKey() });
+  tasks[anchorId].push({ id: uid(), text, done: false, createdAt: currentView === 'tmrw' ? tomorrowKey() : dayKey() });
   saveTasks();
   if (currentView==='today') renderToday(); else renderTomorrow();
 }
@@ -1265,7 +1273,7 @@ function clearDoneTasks(anchorId, currentView) {
 // ─── Export ───────────────────────────────────────────────────────────────────
 function generateExportText() {
   const lines=['ANCHOR SYSTEM — Journal Export',`Generated: ${new Date().toLocaleString()}`,''];
-  const allDayKeys=[...new Set([...Object.keys(journal),...Object.keys(done_notes),...Object.keys(scorecard).filter(dk=>{
+  const allDayKeys=[...new Set([...Object.keys(journal),...Object.keys(done_notes),...Object.keys(notes),...Object.keys(scorecard).filter(dk=>{
     const d=parseDayKey(dk); return anchors.some(a=>anchorActiveOnDate(a,d));
   })])].sort().reverse();
   if(!allDayKeys.length){lines.push('No entries yet.');return lines.join('\n');}
