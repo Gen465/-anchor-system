@@ -702,7 +702,8 @@ function renderToday() {
       if(current) cls+=' is-current';
       else if(done&&past) cls+=' is-done';
       else if(!done&&past) cls+=' is-missed';
-      const hasPlanContent = !!(notes[dk]?.[a.id]) || (tasks[a.id]??[]).some(t=>!t.createdAt||t.createdAt===dk);
+      const planText = notes[dk]?.[a.id] ?? '';
+      const hasPlanContent = !!planText || (tasks[a.id]??[]).some(t=>!t.createdAt||t.createdAt===dk);
       const showPlan = !a.hidePlanIfEmpty || hasPlanContent;
       html+=`<div class="${cls}">
         <div class="card-row">
@@ -712,7 +713,9 @@ function renderToday() {
           <button class="check-btn ${done?'checked':''}" onclick="toggle('${a.id}')">${done?'✓':''}</button>
         </div>
         ${a.mvs?`<div class="card-mvs">${esc(a.mvs)}</div>`:''}
-        ${showPlan?`<textarea class="plan-input" rows="2" placeholder="${planPlaceholder(a.name)}" oninput="saveNote('${dk}','${a.id}',this.value)">${esc(notes[dk]?.[a.id]??'')}</textarea>`:''}
+        ${done
+          ? (planText?`<div class="card-plan"><span>📝</span><span>${esc(planText)}</span></div>`:'')
+          : (showPlan?`<textarea class="plan-input" rows="2" placeholder="${planPlaceholder(a.name)}" oninput="saveNote('${dk}','${a.id}',this.value)">${esc(planText)}</textarea>`:'')}
         ${a.weeklyTarget?(()=>{const wc=getWeekCount(a.id);const et=getEffectiveTarget(a);const hit=wc>=et;return `<div class="card-week-count ${hit?'on-target':''}">${wc}/${et} this week${hit?' ✓':''}</div>`;})():''}
         ${done&&a.trackCompletion?`<div class="done-note-wrap"><textarea class="done-note-field" rows="1" placeholder="What did you do?" onblur="saveDoneNote('${dk}','${a.id}',this.value)">${esc(done_notes[dk]?.[a.id]??'')}</textarea></div>`:''}
         ${showPlan?renderTaskList(a.id,'today'):''}
@@ -1679,10 +1682,25 @@ function purgeOldDeleted() {
   const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30); cutoff.setHours(0,0,0,0);
   anchors=anchors.filter(a=>{ if(!a.deletedAt) return true; return parseDayKey(a.deletedAt)>=cutoff; });
 }
+// Tasks are day-scoped in the UI (renderTaskList hides anything not dated today/tomorrow),
+// but were never actually deleted — leaving stale, unreachable tasks lingering in exports.
+// Drop anything dated before today so nothing outlives what the app can show you.
+function pruneStaleTasks() {
+  let changed=false;
+  const today=new Date(); today.setHours(0,0,0,0);
+  Object.keys(tasks).forEach(aid=>{
+    const before=tasks[aid].length;
+    tasks[aid]=tasks[aid].filter(t=>!t.createdAt||parseDayKey(t.createdAt)>=today);
+    if(tasks[aid].length!==before) changed=true;
+    if(!tasks[aid].length) delete tasks[aid];
+  });
+  return changed;
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 purgeOldDeleted();
-if (runMigrations()) save();
+const migrated=runMigrations(), pruned=pruneStaleTasks();
+if (migrated||pruned) save();
 render();
 if (syncKey) pullFromSupabase();
 setInterval(()=>{
