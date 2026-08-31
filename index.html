@@ -104,6 +104,7 @@ body {
 .chip-hit        { background: #dcfce7; color: #15803d; }
 .chip-miss       { background: #f1f5f9; color: #555; }
 .chip-future     { background: #f8fafc; color: #94a3b8; border: 1.5px solid #e8ecf0; }
+.chip-no         { background: #fee2e2; color: #ef4444; }
 .chip.clickable  { cursor: pointer; transition: opacity 0.15s; }
 .chip.clickable:hover { opacity: 0.7; }
 .week-entry.is-skipped .week-chips { opacity: 0.3; pointer-events: none; }
@@ -114,6 +115,8 @@ body {
 .stat-hero-sub   { font-size: 14px; color: #7c9ef7; margin-top: 6px; font-weight: 600; }
 .stat-section-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
 .stat-block      { margin-bottom: 14px; }
+.stat-block.clickable { cursor: pointer; transition: opacity 0.15s; }
+.stat-block.clickable:hover { opacity: 0.7; }
 .stat-block-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
 .stat-block-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
 .stat-block-frac { font-size: 13px; color: #555; font-variant-numeric: tabular-nums; }
@@ -236,6 +239,12 @@ body {
 /* ── Weekly target ── */
 .card-week-count { font-size: 11px; color: #64748b; margin-top: 5px; padding-left: 48px; font-variant-numeric: tabular-nums; }
 .card-week-count.on-target { color: #22c55e; font-weight: 700; }
+.card-week-count.eatwell-week-count { padding-left: 0; }
+
+/* ── Eating well toggle ── */
+.yn-btn { flex: 1; padding: 10px; border-radius: 11px; border: 1.5px solid #e8e8e8; background: none; font-size: 13px; font-weight: 600; color: #888; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.yn-btn.yn-yes.active { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+.yn-btn.yn-no.active  { background: #fef2f2; border-color: #f87171; color: #ef4444; }
 .target-summary { background: #f8fafc; border: 1.5px solid #e8ecf0; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; }
 .target-summary-title { font-size: 10px; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
 .target-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
@@ -306,6 +315,25 @@ body {
 .sched-add    { width: 100%; padding: 11px; border: 2px dashed #e0e0e0; border-radius: 12px; background: none; font-size: 13px; color: #bbb; cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .sched-add:hover:not(:disabled) { border-color: #4a7cf7; color: #4a7cf7; }
 .sched-add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Calendar dot view ── */
+.cal-grid       { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.cal-row        { display: flex; align-items: center; }
+.cal-row.cal-month-start { border-top: 1.5px solid #eee; margin-top: 6px; padding-top: 8px; }
+.cal-month-cell { width: 32px; flex-shrink: 0; font-size: 10px; font-weight: 700; color: #94a3b8; }
+.cal-days       { display: flex; justify-content: space-between; flex: 1; }
+.cal-head-cell  { font-size: 10px; color: #aaa; font-weight: 700; text-align: center; }
+.cal-cell       { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; }
+.cal-dot        { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.cal-dot.cal-hit  { background: #22c55e; }
+.cal-dot.cal-miss { background: #ef4444; }
+.cal-dot.cal-none { background: #eee; }
+.cal-legend     { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; margin-bottom: 4px; }
+.cal-wk-cell     { margin-left: 6px; padding-left: 10px; border-left: 1.5px solid #f0f0f0; }
+.cal-wk          { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.cal-wk.cal-wk-hit     { background: #22c55e; }
+.cal-wk.cal-wk-miss    { background: #ef4444; }
+.cal-wk.cal-wk-pending { background: #e5e7eb; }
 
 /* ── Modal buttons ── */
 .btn-save   { width: 100%; padding: 15px; background: #4a7cf7; color: #fff; border: none; border-radius: 13px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 6px; }
@@ -378,6 +406,7 @@ let editId              = null;
 let modalSchedules      = [{ days: new Set(ALL_DAYS), time: '09:00' }];
 let isMultiSchedule     = false;
 let modalTrackCompletion = false;
+let modalHidePlanIfEmpty = false;
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 function save() {
@@ -498,28 +527,45 @@ function tomorrowDOW()  { return dayOfWeek(tomorrowDate()); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 // ─── Weekly target helpers ────────────────────────────────────────────────────
+// Shared source of truth for weekly-target progress — used by the Today card,
+// Stats, and the calendar's weekly column, so all three always agree.
+function getWeekTargetStatus(anchor, weekMonday) {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const weekEnd=new Date(weekMonday); weekEnd.setDate(weekMonday.getDate()+6);
+  const startD=startDate?new Date(startDate.replace(/-/g,'/')):null;
+  let available=0, done=0;
+  for (let i=0; i<7; i++) {
+    const d=new Date(weekMonday); d.setDate(weekMonday.getDate()+i);
+    const dk=dayKey(d);
+    if (skipped[dk]) continue;
+    if (startD && d<startD) continue;
+    if (!anchorActiveOnDate(anchor,d)) continue;
+    available++;
+    if (d<=today && scorecard[dk]?.[anchor.id]) done++;
+  }
+  const target=Math.min(anchor.weeklyTarget, available);
+  return { done, target, hit: target>0 && done>=target, complete: weekEnd<today };
+}
 function getWeekCount(anchorId) {
+  const anchor=anchors.find(a=>a.id===anchorId);
+  if (!anchor) return 0;
+  return getWeekTargetStatus(anchor, getMondayOf(new Date())).done;
+}
+
+function getAteWellWeekCount() {
   const today=new Date(); today.setHours(0,0,0,0);
   const mon=getMondayOf(today);
-  let count=0;
+  let done=0, total=0;
   for (let d=new Date(mon); d<=today; d.setDate(d.getDate()+1)) {
-    const dk=dayKey(d);
-    if(skipped[dk]) continue;
-    if(scorecard[dk]?.[anchorId]) count++;
+    total++;
+    if (journal[dayKey(d)]?.ateWell===true) done++;
   }
-  return count;
+  return {done, total};
 }
 
 function getEffectiveTarget(anchor) {
   if (!anchor.weeklyTarget) return null;
-  const mon=getMondayOf(new Date());
-  let available=0;
-  for (let i=0; i<7; i++) {
-    const d=new Date(mon); d.setDate(mon.getDate()+i);
-    if(skipped[dayKey(d)]) continue;
-    if(anchorActiveOn(anchor, d.getDay())) available++;
-  }
-  return Math.min(anchor.weeklyTarget, available);
+  return getWeekTargetStatus(anchor, getMondayOf(new Date())).target;
 }
 
 // Migrations — idempotent, run on every init and after every Supabase pull
@@ -656,6 +702,8 @@ function renderToday() {
       if(current) cls+=' is-current';
       else if(done&&past) cls+=' is-done';
       else if(!done&&past) cls+=' is-missed';
+      const hasPlanContent = !!(notes[dk]?.[a.id]) || (tasks[a.id]??[]).some(t=>!t.createdAt||t.createdAt===dk);
+      const showPlan = !a.hidePlanIfEmpty || hasPlanContent;
       html+=`<div class="${cls}">
         <div class="card-row">
           <span class="card-time">${s.time}</span>
@@ -664,15 +712,26 @@ function renderToday() {
           <button class="check-btn ${done?'checked':''}" onclick="toggle('${a.id}')">${done?'✓':''}</button>
         </div>
         ${a.mvs?`<div class="card-mvs">${esc(a.mvs)}</div>`:''}
-        <textarea class="plan-input" rows="2" placeholder="${planPlaceholder(a.name)}" oninput="saveNote('${dk}','${a.id}',this.value)">${esc(notes[dk]?.[a.id]??'')}</textarea>
+        ${showPlan?`<textarea class="plan-input" rows="2" placeholder="${planPlaceholder(a.name)}" oninput="saveNote('${dk}','${a.id}',this.value)">${esc(notes[dk]?.[a.id]??'')}</textarea>`:''}
         ${a.weeklyTarget?(()=>{const wc=getWeekCount(a.id);const et=getEffectiveTarget(a);const hit=wc>=et;return `<div class="card-week-count ${hit?'on-target':''}">${wc}/${et} this week${hit?' ✓':''}</div>`;})():''}
         ${done&&a.trackCompletion?`<div class="done-note-wrap"><textarea class="done-note-field" rows="1" placeholder="What did you do?" onblur="saveDoneNote('${dk}','${a.id}',this.value)">${esc(done_notes[dk]?.[a.id]??'')}</textarea></div>`:''}
-        ${renderTaskList(a.id,'today')}
+        ${showPlan?renderTaskList(a.id,'today'):''}
       </div>`;
     });
     const doneCount=blocks.filter(a=>sc[a.id]).length;
     html+=`<div class="daily-score">${doneCount} / ${blocks.length} done today</div>`;
   }
+
+  // Eating well — after the last anchor block
+  const ateWellWk=getAteWellWeekCount();
+  html+=`<div class="anchor-card">
+    <div class="card-row"><span class="card-name">Eating well today?</span></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="yn-btn ${j.ateWell===true?'yn-yes active':''}" onclick="setAteWell(true)">🥗 Yes</button>
+      <button class="yn-btn ${j.ateWell===false?'yn-no active':''}" onclick="setAteWell(false)">🍔 No</button>
+    </div>
+    <div class="card-week-count eatwell-week-count ${ateWellWk.done>=ateWellWk.total&&ateWellWk.total>0?'on-target':''}">${ateWellWk.done}/${ateWellWk.total} this week</div>
+  </div>`;
 
   // Evening journal form
   html+=`<div class="journal-section">
@@ -693,6 +752,10 @@ function renderToday() {
       <label>What do you want to let go of?</label>
       <textarea class="journal-textarea" rows="2" placeholder="Leave it here so you don't carry it to bed…" onblur="setJournalText('letGo',this.value)">${esc(j.letGo??'')}</textarea>
     </div>
+    <div class="journal-field">
+      <label>Food notes</label>
+      <textarea class="journal-textarea" rows="2" placeholder="Anything about today's eating? Cravings, skipped meals, what worked…" onblur="setJournalText('foodNote',this.value)">${esc(j.foodNote??'')}</textarea>
+    </div>
   </div>`;
 
   document.getElementById('content').innerHTML=html;
@@ -704,11 +767,21 @@ function renderTomorrow() {
   const blocks=sortedForDay(dow), saved=notes[tk]??{};
   document.getElementById('hTitle').textContent='Tomorrow';
   document.getElementById('hDate').textContent=fmtDate(tmrw);
+
+  // Morning intention banner — shown first
+  let html=`<div class="journal-section" style="margin-top:0;border-top:none;padding-top:0;margin-bottom:24px">
+    <div class="journal-section-title">Morning intention</div>
+    <textarea class="journal-textarea" rows="3"
+      placeholder="Write yourself a note for tomorrow morning. It will appear as a banner when you open the app."
+      onblur="saveAlignment('${tk}',this.value)">${esc(alignment[tk]??'')}</textarea>
+  </div>`;
+
   if (!blocks.length) {
-    document.getElementById('content').innerHTML=`<div class="empty"><div class="empty-icon">🌙</div><p>Nothing scheduled for tomorrow.<br>Go to <strong>Setup</strong> to configure your blocks.</p></div>`;
+    html+=`<div class="empty"><div class="empty-icon">🌙</div><p>Nothing scheduled for tomorrow.<br>Go to <strong>Setup</strong> to configure your blocks.</p></div>`;
+    document.getElementById('content').innerHTML=html;
     return;
   }
-  let html=blocks.map(a=>{
+  html+=blocks.map(a=>{
     const s=getScheduleForDay(a,dow);
     return `<div class="tmrw-card">
       <div class="tmrw-row"><span class="card-time">${s.time}</span><span class="card-name">${esc(a.name)}</span></div>
@@ -718,14 +791,6 @@ function renderTomorrow() {
     </div>`;
   }).join('');
   html+=`<div class="tmrw-hint">Notes appear in Today tomorrow morning.<br>Leave blank if no plan yet.</div>`;
-
-  // Morning intention banner
-  html+=`<div class="journal-section">
-    <div class="journal-section-title">Morning intention</div>
-    <textarea class="journal-textarea" rows="3"
-      placeholder="Write yourself a note for tomorrow morning. It will appear as a banner when you open the app."
-      onblur="saveAlignment('${tk}',this.value)">${esc(alignment[tk]??'')}</textarea>
-  </div>`;
 
   document.getElementById('content').innerHTML=html;
 }
@@ -787,6 +852,7 @@ function renderJournal() {
         {key:'obstacle',label:'In the way'},
         {key:'mindDump',label:'On my mind'},
         {key:'letGo',   label:'Letting go'},
+        {key:'foodNote',label:'Food notes'},
       ];
       const hasContent=fields.some(f=>j[f.key]);
       const blockPlans=Object.entries(notes[dk]??{})
@@ -818,6 +884,16 @@ function setJournalRating(field, val) {
   document.querySelectorAll(`.rating-group-${field} .rating-btn`).forEach((btn,i)=>{
     btn.classList.toggle('active',(i+1)===journal[dk][field]);
   });
+}
+
+function setAteWell(val) {
+  const dk=dayKey();
+  if(!journal[dk]) journal[dk]={};
+  journal[dk].ateWell = journal[dk].ateWell===val ? undefined : val;
+  if(journal[dk].ateWell===undefined) delete journal[dk].ateWell;
+  journal[dk].savedAt=new Date().toISOString();
+  saveJournalData();
+  renderToday();
 }
 
 function setJournalText(field, val) {
@@ -876,6 +952,13 @@ function renderWeek() {
           ${interactive?`onclick="togglePastBlock('${dk}','${a.id}')"`:''}>${esc(a.name)}</span>`;
       });
     }
+    if (!future) {
+      const aw=journal[dk]?.ateWell;
+      const awCls=aw===true?'chip-hit':aw===false?'chip-no':'chip-miss';
+      const awInteractive=(isPast||isToday)&&!daySkip;
+      chips+=`<span class="chip ${awCls} ${awInteractive?'clickable':''}"
+        ${awInteractive?`onclick="toggleWeekAteWell('${dk}')"`:''}>🍽️ Eating well</span>`;
+    }
 
     const done=blocks.filter(a=>sc[a.id]).length;
     const allDone=blocks.length>0&&done===blocks.length;
@@ -903,6 +986,15 @@ function togglePastBlock(dk,anchorId) {
   if(!scorecard[dk]) scorecard[dk]={};
   scorecard[dk][anchorId]=!scorecard[dk][anchorId];
   save(); renderWeek();
+}
+function toggleWeekAteWell(dk) {
+  if(!journal[dk]) journal[dk]={};
+  const cur=journal[dk].ateWell;
+  const next = cur===undefined ? true : cur===true ? false : undefined;
+  if (next===undefined) delete journal[dk].ateWell;
+  else journal[dk].ateWell=next;
+  journal[dk].savedAt=new Date().toISOString();
+  saveJournalData(); renderWeek();
 }
 function toggleSkip(dk) {
   if(skipped[dk]) delete skipped[dk]; else skipped[dk]=true;
@@ -1020,19 +1112,30 @@ function renderStats() {
       const et=getEffectiveTarget(a);
       const pct=et?Math.min(100,Math.round((p.done/et)*100)):100;
       const full=p.done>=et;
-      html+=`<div class="stat-block">
+      html+=`<div class="stat-block clickable" onclick="openAnchorCalendar('${a.id}')">
         <div class="stat-block-header"><span class="stat-block-name">${esc(a.name)}</span><span class="stat-block-frac">${p.done} / ${et} target</span></div>
         <div class="stat-bar-track"><div class="stat-bar-fill ${full?'full':''}" style="width:${pct}%"></div></div>
       </div>`;
     } else {
       const pct=p.scheduled?Math.round((p.done/p.scheduled)*100):0;
       const full=pct===100&&p.scheduled>0;
-      html+=`<div class="stat-block">
+      html+=`<div class="stat-block clickable" onclick="openAnchorCalendar('${a.id}')">
         <div class="stat-block-header"><span class="stat-block-name">${esc(a.name)}</span><span class="stat-block-frac">${p.done} / ${p.scheduled}</span></div>
         <div class="stat-bar-track"><div class="stat-bar-fill ${full?'full':''}" style="width:${pct}%"></div></div>
       </div>`;
     }
   });
+
+  // Eating well — days elapsed this week
+  const ateWellWk=getAteWellWeekCount();
+  if (ateWellWk.total>0) {
+    const awPct=Math.round((ateWellWk.done/ateWellWk.total)*100);
+    const awFull=ateWellWk.done>=ateWellWk.total;
+    html+=`<div class="stat-block clickable" onclick="openAnchorCalendar('ateWell')">
+      <div class="stat-block-header"><span class="stat-block-name">Eating well</span><span class="stat-block-frac">${ateWellWk.done} / ${ateWellWk.total}</span></div>
+      <div class="stat-bar-track"><div class="stat-bar-fill ${awFull?'full':''}" style="width:${awPct}%"></div></div>
+    </div>`;
+  }
 
   html+=`<hr class="stat-divider">
     <div class="stat-section-title">Consistency — last 30 days</div>
@@ -1078,6 +1181,83 @@ function renderStats() {
   document.getElementById('content').innerHTML=html;
 }
 
+// ─── Calendar dot view ─────────────────────────────────────────────────────────
+function dayStatusFor(id, d) {
+  const dk=dayKey(d);
+  if (startDate) {
+    const startD=new Date(startDate.replace(/-/g,'/'));
+    if (d < startD) return 'none';
+  }
+  if (id==='ateWell') {
+    const v=journal[dk]?.ateWell;
+    if (v===true) return 'hit';
+    if (v===false) return 'miss';
+    return 'none';
+  }
+  const a=anchors.find(x=>x.id===id);
+  if (!a) return 'none';
+  if (skipped[dk]) return 'none';
+  if (!anchorActiveOnDate(a,d)) return 'none';
+  const sc=scorecard[dk]??{};
+  return sc[id] ? 'hit' : 'miss';
+}
+function openAnchorCalendar(id) {
+  const anchor = id==='ateWell' ? null : anchors.find(a=>a.id===id);
+  const label = id==='ateWell' ? 'Eating well' : (anchor?.name ?? '');
+  const hasTarget = !!(anchor && anchor.weeklyTarget);
+  closeModal();
+  const el=document.createElement('div');
+  el.className='overlay'; el.id='modal';
+  el.onclick=e=>{ if(e.target===el) closeModal(); };
+  el.innerHTML=`<div class="modal">
+    <h2>${esc(label)}</h2>
+    <div class="cal-legend"><span class="cal-dot cal-hit"></span><span>Done</span><span class="cal-dot cal-miss" style="margin-left:14px"></span><span>Missed</span></div>
+    ${hasTarget?`<div class="cal-legend"><span class="cal-wk cal-wk-hit"></span><span>Week target hit</span><span class="cal-wk cal-wk-miss" style="margin-left:14px"></span><span>Week missed</span><span class="cal-wk cal-wk-pending" style="margin-left:14px"></span><span>In progress</span></div>`:''}
+    <div id="cal-body"></div>
+    <button class="btn-cancel" onclick="closeModal()">Close</button>
+  </div>`;
+  document.body.appendChild(el);
+  renderCalendarGrid(id);
+}
+const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function renderCalendarGrid(id) {
+  const today=new Date(); today.setHours(0,0,0,0);
+  const weeksBack=11;
+  const anchor = id==='ateWell' ? null : anchors.find(a=>a.id===id);
+  const hasTarget = !!(anchor && anchor.weeklyTarget);
+  const startMon=getMondayOf(today); startMon.setDate(startMon.getDate()-weeksBack*7);
+  let html=`<div class="cal-grid">`;
+  html+=`<div class="cal-row"><span class="cal-month-cell"></span><div class="cal-days">${DAY_ORDER.map(d=>`<span class="cal-cell cal-head-cell">${DAY_NAMES[d]}</span>`).join('')}${hasTarget?`<span class="cal-cell cal-head-cell cal-wk-cell">Wk</span>`:''}</div></div>`;
+  let prevMonth=null;
+  for (let w=0; w<=weeksBack; w++) {
+    const weekMon=new Date(startMon); weekMon.setDate(startMon.getDate()+w*7);
+    const mo=weekMon.getMonth();
+    const isNewMonth=mo!==prevMonth;
+    const monthLabel=isNewMonth?MONTH_NAMES[mo]:'';
+    prevMonth=mo;
+    html+=`<div class="cal-row ${isNewMonth&&w>0?'cal-month-start':''}"><span class="cal-month-cell">${monthLabel}</span><div class="cal-days">`;
+    for (let i=0; i<7; i++) {
+      const d=new Date(weekMon); d.setDate(weekMon.getDate()+i);
+      if (d>today) { html+=`<span class="cal-cell"></span>`; continue; }
+      const status=dayStatusFor(id,d);
+      const dotCls = status==='hit'?'cal-dot cal-hit':status==='miss'?'cal-dot cal-miss':'cal-dot cal-none';
+      html+=`<span class="cal-cell" title="${dayKey(d)}"><span class="${dotCls}"></span></span>`;
+    }
+    if (hasTarget) {
+      if (weekMon>today) {
+        html+=`<span class="cal-cell cal-wk-cell"></span>`;
+      } else {
+        const st=getWeekTargetStatus(anchor, weekMon);
+        const wkCls = st.hit?'cal-wk-hit':st.complete?'cal-wk-miss':'cal-wk-pending';
+        html+=`<span class="cal-cell cal-wk-cell"><span class="cal-wk ${wkCls}" title="${st.done}/${st.target} that week"></span></span>`;
+      }
+    }
+    html+=`</div></div>`;
+  }
+  html+=`</div>`;
+  document.getElementById('cal-body').innerHTML=html;
+}
+
 // ─── Setup ────────────────────────────────────────────────────────────────────
 function renderSetup() {
   document.getElementById('hTitle').textContent='Setup';
@@ -1113,7 +1293,7 @@ function renderSetup() {
         <div class="setup-time">${a.schedules.map(s=>s.time).join(' / ')}</div>
         <div class="setup-name">${esc(a.name)}</div>
         ${a.mvs?`<div class="setup-sub">${esc(a.mvs)}</div>`:''}
-        <span class="setup-days-badge">${scheduleLabel(a.schedules)}${a.weeklyTarget?` · ${a.weeklyTarget}×/week target`:''}${a.trackCompletion?' · 📝 tracked':''}</span>
+        <span class="setup-days-badge">${scheduleLabel(a.schedules)}${a.weeklyTarget?` · ${a.weeklyTarget}×/week target`:''}${a.trackCompletion?' · 📝 tracked':''}${a.hidePlanIfEmpty?' · 🙈 hides empty plan':''}</span>
       </div>
       <button class="edit-btn" onclick="openEdit('${a.id}')">✏️</button>
     </div>`;
@@ -1157,6 +1337,7 @@ function openAdd() {
   modalSchedules=[{days:new Set(ALL_DAYS),time:'09:00'}];
   isMultiSchedule=false;
   modalTrackCompletion=false;
+  modalHidePlanIfEmpty=false;
   showModal({name:'',mvs:''});
 }
 function openEdit(id) {
@@ -1165,6 +1346,7 @@ function openEdit(id) {
   modalSchedules=a.schedules.map(s=>({days:new Set(s.days),time:s.time}));
   isMultiSchedule=modalSchedules.length>1;
   modalTrackCompletion=a.trackCompletion??false;
+  modalHidePlanIfEmpty=a.hidePlanIfEmpty??false;
   showModal(a);
 }
 function showModal(data) {
@@ -1190,6 +1372,10 @@ function showModal(data) {
       <div class="multi-toggle-box ${modalTrackCompletion?'on':''}" id="track-chk">${modalTrackCompletion?'✓':''}</div>
       <span class="multi-toggle-label">Track what I did (note field in Today)</span>
     </div>
+    <div class="multi-toggle-row" onclick="toggleHidePlanIfEmpty()">
+      <div class="multi-toggle-box ${modalHidePlanIfEmpty?'on':''}" id="hideplan-chk">${modalHidePlanIfEmpty?'✓':''}</div>
+      <span class="multi-toggle-label">Hide plan &amp; tasks on Today when empty</span>
+    </div>
     <button class="btn-save" onclick="saveAnchor()">Save</button>
     <button class="btn-cancel" onclick="closeModal()">Cancel</button>
     ${editId?`<button class="btn-delete" onclick="deleteAnchor()">Delete this block</button>`:''}
@@ -1204,6 +1390,11 @@ function toggleTrackCompletion() {
   modalTrackCompletion=!modalTrackCompletion;
   const box=document.getElementById('track-chk');
   if(box){box.classList.toggle('on',modalTrackCompletion);box.textContent=modalTrackCompletion?'✓':'';}
+}
+function toggleHidePlanIfEmpty() {
+  modalHidePlanIfEmpty=!modalHidePlanIfEmpty;
+  const box=document.getElementById('hideplan-chk');
+  if(box){box.classList.toggle('on',modalHidePlanIfEmpty);box.textContent=modalHidePlanIfEmpty?'✓':'';}
 }
 
 function saveDoneNote(dateKey, anchorId, val) {
@@ -1299,6 +1490,7 @@ function generateExportText() {
     if(j.obstacle) lines.push(`  In the way: ${j.obstacle}`);
     if(j.mindDump) lines.push(`  On my mind: ${j.mindDump}`);
     if(j.letGo)    lines.push(`  Letting go: ${j.letGo}`);
+    if(j.foodNote) lines.push(`  Food notes: ${j.foodNote}`);
     lines.push('');
   });
   // Pending tasks per block
@@ -1462,11 +1654,12 @@ function saveAnchor() {
   if(!schedules.length) return;
   const weeklyTarget=parseInt(document.getElementById('f-target').value)||null;
   const trackCompletion=modalTrackCompletion;
+  const hidePlanIfEmpty=modalHidePlanIfEmpty;
   if(editId) {
     const idx=anchors.findIndex(a=>a.id===editId);
-    anchors[idx]={...anchors[idx], name, mvs, schedules, weeklyTarget, trackCompletion};
+    anchors[idx]={...anchors[idx], name, mvs, schedules, weeklyTarget, trackCompletion, hidePlanIfEmpty};
   } else {
-    anchors.push({id:uid(),name,mvs,schedules,weeklyTarget,trackCompletion});
+    anchors.push({id:uid(),name,mvs,schedules,weeklyTarget,trackCompletion,hidePlanIfEmpty});
   }
   save(); closeModal(); renderSetup();
 }
